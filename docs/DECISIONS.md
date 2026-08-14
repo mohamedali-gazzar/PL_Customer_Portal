@@ -198,6 +198,33 @@ way on every platform.
 
 ---
 
+## D10 — Real data only. There is no synthetic mode
+
+**Decided by the data owner:** the portal shows real customers, real projects, real
+panels, real engineers, real dates and real values, everywhere, including in
+deployments. This is a production system, not a demonstration.
+
+An anonymising option existed briefly and has been removed rather than left
+switchable — a synthetic dataset that can be deployed by accident is worse than one
+that cannot be deployed at all, and this one was: it reached production and was
+reported as a bug, because "Engineer 1" is indistinguishable from a broken name
+lookup.
+
+**Consequences, accepted deliberately:**
+
+- `content/portal-snapshot.json` is committed and carries real customer data. The
+  `.gitignore` block that forbade this is now scoped to the raw spreadsheets only,
+  and says why.
+- The repository must stay private. The snapshot travels wherever it travels.
+- A deployment URL is readable by anyone holding the link, and the sign-in screen
+  publishes the customer list while `PORTAL_DEMO_MODE` is on. Access protection at
+  the host is the control, not the data.
+
+**Where enforced:** `scripts/build-snapshot.ts` has one output and no flags;
+`src/providers/bundled.ts` is the deployment's data path.
+
+---
+
 ## Open questions
 
 **OPEN-1 — What does "On hold" mean to a customer?** 63 lines across 14 orders carry

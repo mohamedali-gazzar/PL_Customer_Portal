@@ -139,37 +139,42 @@ log of customer requests.
 
 ## Deploying
 
-A deployment cannot use the `xlsx` provider. The export is real customer data, so
-it is gitignored — which means it is not in the repository and not in anything
-built from it. There is no file to read.
+The portal serves `content/portal-snapshot.json`, which is committed. Deploying the
+code deploys the data, so there is nothing to configure and nothing to upload.
 
-So derive locally, publish the result, and point the deployment at it:
-
-```bash
-npm run build:snapshot -- --anonymise   # or without the flag, for real data
-```
-
-Upload the file from `data/` to storage the deployment can read (Vercel Blob, S3,
-any private URL), then set these environment variables on the host:
+**One environment variable is required:**
 
 | Variable | Value |
 | --- | --- |
-| `PORTAL_DATA_PROVIDER` | `snapshot` |
-| `PORTAL_SNAPSHOT_URL` | the uploaded file's URL |
-| `PORTAL_SESSION_SECRET` | 32+ random characters — `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` |
-| `PORTAL_DEMO_MODE` | `1` while sign-in is still the demo picker |
-| `PORTAL_ALLOW_DEMO_IN_PRODUCTION` | `1` — required, deliberately, because demo mode publishes customer names |
+| `PORTAL_SESSION_SECRET` | 32+ random characters |
 
-Then redeploy, because environment variables are read at boot. `/api/health` tells
-you whether it worked and names the problem if it did not.
+```bash
+node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"
+```
 
-Updating the data afterwards is: re-run `build:snapshot`, re-upload, and wait for
-the 5-minute cache window. No redeploy.
+It signs the session cookie. Without it the cookie is signed with a value printed
+in this repository, and anyone could mint one naming any customer. The app refuses
+to start in production without it, which is deliberate.
 
-> **A deployment URL is public unless you make it otherwise.** With demo mode on,
-> anyone who has the link sees the sign-in screen's statistics and customer list.
-> Either publish the anonymised snapshot, or put the deployment behind Vercel's
-> password/SSO protection. Preferably both.
+Everything else defaults correctly. `/api/health` reports what is running and names
+any problem.
+
+### Refreshing the data
+
+```bash
+# drop the new export at data/backlog.xlsx, then
+npm run build:snapshot
+git add content/portal-snapshot.json && git commit && git push
+```
+
+That is the loop until ERPNext is connected — after which the portal reads the ERP
+continuously and this file stops being part of the running system.
+
+### Keep the repository private
+
+`content/portal-snapshot.json` holds real customer names, contract values and
+delivery performance, by the data owner's decision (D10). It travels wherever the
+repository travels.
 
 ---
 

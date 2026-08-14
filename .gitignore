@@ -1,13 +1,17 @@
-# ── REAL COMPANY DATA — NEVER COMMIT ────────────────────────────────
-# This block is deliberately first. The Excel backlog export and anything
-# derived from it are real customer data (names, order values, schedules).
+# ── Source spreadsheets ─────────────────────────────────────────────
+# The raw exports stay out of the repository — they are working files, and the
+# application does not read them at runtime.
+#
+# The DERIVED snapshot the portal serves, content/portal-snapshot.json, IS
+# committed. It carries real customer names, order values and schedules, on the
+# decision of the data owner (docs/DECISIONS.md, D10). Keep this repository
+# private, and treat a change to that decision as a change to this file.
 data/
 *.xlsx
 *.xlsm
 *.xls
 *.csv
 snapshots/
-*.snapshot.json
 
 # ── Secrets ─────────────────────────────────────────────────────────
 .env

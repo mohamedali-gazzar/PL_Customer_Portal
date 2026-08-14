@@ -19,9 +19,6 @@ export async function GET(): Promise<Response> {
     return Response.json({
       status: 'ok',
       provider: cfg.provider,
-      // Which dataset is being served. Absent from a snapshot means real, because
-      // that is the reading that prompts a look rather than false reassurance.
-      dataset: snapshot.meta.dataset ?? 'real',
       cache: cfg.cacheDriver,
       demoMode: cfg.demoMode,
       asOf: snapshot.meta.exportDate,

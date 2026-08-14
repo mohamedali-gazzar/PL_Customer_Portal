@@ -21,6 +21,7 @@ import { MemoryCacheStore } from '@/infra/cache/memory-store'
 import { UpstashCacheStore } from '@/infra/cache/upstash-store'
 import { cacheKey, type CacheStore } from '@/ports/cache-store'
 import type { PortalSnapshot } from '@/portal/types'
+import { loadBundledSnapshot } from '@/providers/bundled'
 import { loadXlsxSnapshot } from '@/providers/xlsx'
 import { loadSnapshotFromUrl } from '@/providers/snapshot-url'
 import { loadErpNextSnapshot } from '@/providers/erpnext/provider'
@@ -50,6 +51,7 @@ let inFlight: Promise<PortalSnapshot> | null = null
 async function readSource(cfg: PortalConfig): Promise<PortalSnapshot> {
   if (cfg.provider === 'erpnext') return loadErpNextSnapshot(cfg)
   if (cfg.provider === 'snapshot') return loadSnapshotFromUrl(cfg.snapshotUrl!)
+  if (cfg.provider === 'bundled') return loadBundledSnapshot()
 
   const { snapshot, warnings } = await loadXlsxSnapshot(cfg.excelPath)
   for (const w of warnings) console.warn(`[portal] ${w}`)
