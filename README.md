@@ -137,6 +137,42 @@ log of customer requests.
 
 ---
 
+## Deploying
+
+A deployment cannot use the `xlsx` provider. The export is real customer data, so
+it is gitignored — which means it is not in the repository and not in anything
+built from it. There is no file to read.
+
+So derive locally, publish the result, and point the deployment at it:
+
+```bash
+npm run build:snapshot -- --anonymise   # or without the flag, for real data
+```
+
+Upload the file from `data/` to storage the deployment can read (Vercel Blob, S3,
+any private URL), then set these environment variables on the host:
+
+| Variable | Value |
+| --- | --- |
+| `PORTAL_DATA_PROVIDER` | `snapshot` |
+| `PORTAL_SNAPSHOT_URL` | the uploaded file's URL |
+| `PORTAL_SESSION_SECRET` | 32+ random characters — `node -e "console.log(require('crypto').randomBytes(32).toString('base64url'))"` |
+| `PORTAL_DEMO_MODE` | `1` while sign-in is still the demo picker |
+| `PORTAL_ALLOW_DEMO_IN_PRODUCTION` | `1` — required, deliberately, because demo mode publishes customer names |
+
+Then redeploy, because environment variables are read at boot. `/api/health` tells
+you whether it worked and names the problem if it did not.
+
+Updating the data afterwards is: re-run `build:snapshot`, re-upload, and wait for
+the 5-minute cache window. No redeploy.
+
+> **A deployment URL is public unless you make it otherwise.** With demo mode on,
+> anyone who has the link sees the sign-in screen's statistics and customer list.
+> Either publish the anonymised snapshot, or put the deployment behind Vercel's
+> password/SSO protection. Preferably both.
+
+---
+
 ## Connecting the live ERP
 
 `src/providers/erpnext/` implements the §9 queries against the documented v15 REST
