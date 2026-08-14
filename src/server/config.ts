@@ -12,14 +12,13 @@
  * `'' ?? 'x'` is `''`.
  */
 
-export type DataProviderName = 'bundled' | 'xlsx' | 'snapshot' | 'erpnext'
+export type DataProviderName = 'bundled' | 'xlsx' | 'erpnext'
 export type CacheDriverName = 'memory' | 'upstash'
 
 export interface PortalConfig {
   readonly production: boolean
   readonly provider: DataProviderName
   readonly excelPath: string
-  readonly snapshotUrl: string | null
   readonly cacheDriver: CacheDriverName
   readonly upstash: { readonly url: string; readonly token: string } | null
   readonly sessionSecret: string
@@ -73,24 +72,45 @@ function int(raw: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n > 0 ? Math.trunc(n) : fallback
 }
 
+/**
+ * Which data provider to use.
+ *
+ * `snapshot` is retired. It fetched a derived snapshot over HTTPS, and existed
+ * only while the data could not travel with the build; the snapshot is now
+ * committed, so the same file ships with the code. Deployments configured for it
+ * are migrated here rather than broken, because a stale variable in a hosting
+ * dashboard would otherwise keep overriding the default indefinitely — silently,
+ * and with data nobody intended to serve.
+ *
+ * An unrecognised value is still fatal. Falling back on anything we do not
+ * recognise would turn `erpnex` into "quietly serve last month's spreadsheet",
+ * which is the failure this codebase exists to prevent.
+ */
+function resolveProvider(raw: string | undefined): DataProviderName {
+  const name = (raw ?? 'bundled').toLowerCase()
+  if (name === 'bundled' || name === 'xlsx' || name === 'erpnext') return name
+
+  if (name === 'snapshot') {
+    console.warn(
+      '[portal] PORTAL_DATA_PROVIDER=snapshot is retired and is being ignored. The portal ' +
+        'now serves content/portal-snapshot.json, which ships with the build. Remove ' +
+        'PORTAL_DATA_PROVIDER and PORTAL_SNAPSHOT_URL from this environment.',
+    )
+    return 'bundled'
+  }
+
+  throw new ConfigError(
+    `PORTAL_DATA_PROVIDER must be one of these, not "${name}":\n` +
+      `  bundled — the snapshot committed at content/portal-snapshot.json (default)\n` +
+      `  xlsx    — derive from the backlog export on local disk\n` +
+      `  erpnext — read the live ERP`,
+  )
+}
+
 export function loadConfig(env: NodeJS.ProcessEnv = process.env): PortalConfig {
   const production = env.NODE_ENV === 'production'
 
-  const provider = (str(env.PORTAL_DATA_PROVIDER) ?? 'bundled').toLowerCase()
-  if (provider !== 'bundled' && provider !== 'xlsx' && provider !== 'snapshot' && provider !== 'erpnext') {
-    throw new ConfigError(
-      `PORTAL_DATA_PROVIDER must be one of these, not "${provider}":\n` +
-        `  bundled  — the snapshot committed at content/portal-snapshot.json (default)\n` +
-        `  xlsx     — derive from the backlog export on local disk\n` +
-        `  snapshot — fetch a derived snapshot over HTTPS\n` +
-        `  erpnext  — read the live ERP`,
-    )
-  }
-
-  const snapshotUrl = str(env.PORTAL_SNAPSHOT_URL) ?? null
-  if (provider === 'snapshot' && !snapshotUrl) {
-    throw new ConfigError('PORTAL_DATA_PROVIDER=snapshot needs PORTAL_SNAPSHOT_URL.')
-  }
+  const provider = resolveProvider(str(env.PORTAL_DATA_PROVIDER))
 
   const cacheDriver = (str(env.PORTAL_CACHE_DRIVER) ?? 'memory').toLowerCase()
   if (cacheDriver !== 'memory' && cacheDriver !== 'upstash') {
@@ -131,7 +151,6 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): PortalConfig {
     production,
     provider,
     excelPath: str(env.EXCEL_BACKLOG_PATH) ?? 'data/backlog.xlsx',
-    snapshotUrl,
     cacheDriver,
     upstash: upstashUrl && upstashToken ? { url: upstashUrl, token: upstashToken } : null,
     sessionSecret: sessionSecret ?? DEV_SECRET,
