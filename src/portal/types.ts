@@ -166,6 +166,17 @@ export interface NameCount {
 export interface PortalMeta {
   /** The day the source data is true as of. Every countdown is measured from here. */
   readonly exportDate: string
+  /**
+   * Whether the names in this snapshot are real or synthetic.
+   *
+   * Stamped by `build:snapshot` and reported by `/api/health`, so which dataset a
+   * deployment is serving is a question with an answer rather than something you
+   * work out by recognising a customer. Absent means real — the safe reading, since
+   * it prompts a look rather than false reassurance.
+   *
+   * Never reaches a customer: their payload carries `CustomerMeta`.
+   */
+  readonly dataset?: 'real' | 'anonymised'
   readonly rows: number
   readonly orders: number
   readonly customers: number

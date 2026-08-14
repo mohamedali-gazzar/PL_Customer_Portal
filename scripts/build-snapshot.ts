@@ -27,7 +27,9 @@ const target = anonymise ? 'data/portal-snapshot-demo.json' : 'data/portal-snaps
 const { snapshot, warnings } = await loadXlsxSnapshot(source)
 for (const w of warnings) console.warn(`  warning: ${w}`)
 
-const out = anonymise ? redact(snapshot) : snapshot
+const out: PortalSnapshot = anonymise
+  ? redact(snapshot)
+  : { ...snapshot, meta: { ...snapshot.meta, dataset: 'real' } }
 await writeFile(target, JSON.stringify(out), 'utf8')
 
 const bytes = Buffer.byteLength(JSON.stringify(out), 'utf8')
@@ -88,6 +90,7 @@ function redact(s: PortalSnapshot): PortalSnapshot {
   return {
     meta: {
       ...s.meta,
+      dataset: 'anonymised',
       pms: s.meta.pms.map((p) => ({ n: manager(p.n), c: p.c })),
       groups: s.meta.groups.map((g) => ({ n: group(g.n), c: g.c })),
     },
