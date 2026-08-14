@@ -1,27 +1,27 @@
 /**
- * Cache ports.
+ * The cache storage port.
  *
- * `CacheStore` is the storage adapter — `MemoryCacheStore` for development and
- * tests, `UpstashCacheStore` for production. `ReadModelCache` is the strategy the
- * application layer talks to, so composers depend on this interface rather than on
- * the concrete `TenantCache`.
+ * `MemoryCacheStore` backs development and tests; `UpstashCacheStore` backs
+ * production, as the brief's §3 hosting decision requires. Everything above this
+ * interface is written once and runs against either.
  *
- * `CacheKey` is branded and `CacheStore` accepts nothing else, so a raw string
- * cannot be used as a key. Every builder in `infra/cache/keys.ts` requires a
- * `CustomerId`, which makes "cache keys are tenant-scoped" a fact about the types
- * rather than a rule someone has to remember.
+ * `CacheKey` is branded so a bare string cannot be passed as a key by accident:
+ * every key must come from a builder that has already applied the tenant scope.
+ * That makes "cache entries are tenant-scoped" a property of the type system
+ * rather than a convention someone has to remember on a busy afternoon.
  */
-
-import type { CustomerId } from '@/domain'
 
 declare const CacheKeyBrand: unique symbol
 export type CacheKey = string & { readonly [CacheKeyBrand]: true }
 
-export type ReadModelName = 'dashboard' | 'projects' | 'project-detail' | 'finance' | 'documents'
+/** The only way to mint a key. Callers pass the tenant scope explicitly. */
+export function cacheKey(scope: string, ...parts: readonly string[]): CacheKey {
+  return [scope, ...parts].map((p) => encodeURIComponent(p)).join(':') as CacheKey
+}
 
 export interface CacheEntry<T> {
   readonly value: T
-  /** Epoch ms. Past this the entry is stale but still servable. */
+  /** Epoch ms. Past this the entry is stale but may still be served. */
   readonly freshUntil: number
   readonly storedAt: number
 }
@@ -41,12 +41,12 @@ export interface CacheStore {
   delete(key: CacheKey): Promise<void>
 
   /**
-   * Atomic increment, used for per-tenant generation counters.
+   * Atomic increment, for per-tenant generation counters.
    *
-   * Invalidation is O(1): a webhook bumps one integer and every cached entry for
-   * that tenant becomes unreachable, because the generation is part of the key.
-   * No SCAN, no key enumeration, and no window in which a partial flush leaves a
-   * tenant with a mix of old and new payloads.
+   * Invalidation is O(1): an ERPNext webhook bumps one integer and every cached
+   * entry for that tenant becomes unreachable, because the generation forms part
+   * of the key. No SCAN, no key enumeration, and no window in which a partial
+   * flush leaves a tenant looking at a mix of old and new data.
    */
   increment(key: CacheKey): Promise<number>
   readCounter(key: CacheKey): Promise<number | null>
@@ -54,26 +54,4 @@ export interface CacheStore {
   /** Best-effort lock for single-flight recomputation. `false` means someone else holds it. */
   acquireLock(key: CacheKey, ttlMs: number): Promise<boolean>
   releaseLock(key: CacheKey): Promise<void>
-}
-
-export type CacheOutcomeName = 'hit' | 'stale' | 'miss' | 'bypass'
-
-export interface CachedResult<T> {
-  readonly value: T
-  readonly outcome: CacheOutcomeName
-  readonly key: string
-}
-
-/** What the application layer uses. Implemented by `infra/cache/TenantCache`. */
-export interface ReadModelCache {
-  readonly driver: string
-  generation(customerId: CustomerId): Promise<number>
-  /** Retire every cached entry for one tenant. Called by the ERPNext webhook in M6. */
-  invalidateTenant(customerId: CustomerId): Promise<number>
-  readModel<T>(
-    name: ReadModelName,
-    customerId: CustomerId,
-    parts: readonly string[],
-    compute: () => Promise<T>,
-  ): Promise<CachedResult<T>>
 }

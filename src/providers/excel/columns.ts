@@ -85,49 +85,16 @@ export const COLUMN_KEYS = Object.keys(COLUMNS) as ColumnKey[]
 export const EXPECTED_COLUMN_COUNT = COLUMN_KEYS.length
 
 /**
- * Columns that must never reach a customer-facing DTO.
+ * What must never reach a customer, per brief §7.3: any cost or margin figure, BOM
+ * contents, supplier data, internal remarks, rework *reasons*, employee contact
+ * details and warehouse names.
  *
- * This is documentation and a test fixture, not the enforcement mechanism — the
- * real guarantee is that DTOs are hand-written whitelists and are scanned by
- * `tests/security/dto-blacklist.test.ts`. Listing them here keeps the reasoning
- * next to the data.
+ * None of those appear in this export, so there is no column to exclude here. The
+ * guarantee is structural rather than a list: `PortalItem` is a hand-written
+ * whitelist, and `scopeToCustomer` is the only code that builds a customer payload.
+ * If the export ever gains a cost column, adding it to `PortalItem` would have to be
+ * a deliberate act.
+ *
+ * Rework is the one case worth naming: its dates drive milestone 4, but its reason
+ * and comment are never read, and the customer sees only neutral wording.
  */
-export const INTERNAL_ONLY_COLUMNS: readonly ColumnKey[] = [
-  'itemGroup', // internal product taxonomy; reveals BOM structure
-  'backlogAmount', // decision D3: not contract value, and reveals unit price
-  'workOrder', // internal ERPNext document ids
-  'woCount',
-  'mainWoCount',
-  'mainModifiedMaterialDeliveryDate', // exposes internal re-planning
-  'mainDays', // internal cycle-time KPI
-  'onHold', // decision D4: business meaning unconfirmed
-  'iaCreated', // internal preparation time
-  'revCreated',
-  'relCreated',
-  'initialApprovalRfds',
-  'revisionRfds', // decision D6: a revision count invites blame disputes
-  'releasedRfds',
-  // Rework internals — PDF §4 allows a neutral status only.
-  'reworkWoCount',
-  'reworkWoStatus',
-  'reworkCreated',
-  'reworkMaterialStatus',
-  'reworkMaterialDeliveryDate',
-  'reworkPlannedEndDate',
-  'reworkModifiedMaterialDeliveryDate',
-  'reworkMaterialReady',
-  'reworkDays',
-  // Internal cycle-time KPIs. T2 is the exception: it measures the customer's
-  // own approval turnaround and is surfaced as "awaiting your approval for N days".
-  't1DrawingsSubmission',
-  't3WoRelease',
-  't4Material',
-  't5Manufacturing',
-  't6ReworkRelease',
-  't7ReworkMaterial',
-  't8ReworkManufacturing',
-  'mainDays',
-  // Frozen as of the export date; always recomputed live instead.
-  'ageSinceSo',
-  'daysToContractual',
-]

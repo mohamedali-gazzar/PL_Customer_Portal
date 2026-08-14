@@ -1,231 +1,178 @@
-# Powerline Customer Portal
+# Powerline Customer Project Portal
 
-A read-only portal giving each Powerline customer a live view of their orders: where
-every panel stands in the 7-stage production journey, what is planned versus what
-actually happened, their financial position, and their documents.
+A read-only customer portal: every customer sees where each panel stands in the
+production journey, when each milestone was planned and actually happened, and
+what the order is worth.
 
-**Status: M0–M4 complete.** Domain rules, the Excel data provider, read models, caching,
-instrumentation and the customer-facing UI (English/Arabic, RTL, desktop and mobile) are
-in place and tested. Real authentication is M5; the ERPNext provider is M6.
+ERPNext is the single source of truth. The portal writes nothing back.
 
-- Functional specification: `Powerline_Customer_Portal_Package.pdf`
-- Discovery analysis: [docs/PHASE-1-DISCOVERY.md](docs/PHASE-1-DISCOVERY.md)
-- Decisions and their enforcement points: [docs/DECISIONS.md](docs/DECISIONS.md)
+**Status:** running locally against the real backlog export. Not yet deployed, not
+yet connected to the live ERP, and not yet safe to expose to the internet — see
+[Before this goes online](#before-this-goes-online).
 
 ---
 
-## Getting started
+## Run it
 
 ```bash
 npm install
 ```
 
-Put the backlog export at `data/backlog.xlsx` (the whole `data/` directory is
-gitignored) and create `.env.local` from `.env.example`.
+Put the PM Phase Cycle Times export at `data/backlog.xlsx`, copy `.env.example` to
+`.env.local`, then:
 
 ```bash
-npm run verify
+npm run dev
 ```
 
-That parses the real export, prints the stage distribution across all 480 order
-lines, reports data-quality diagnostics, composes every screen for every tenant, and
-measures provider calls and response times. It is the fastest way to see what the
-current data source can and cannot support.
+It serves on <http://localhost:3210>. Sign in either as a customer (pick any of the
+107 from the demo list) or as Powerline staff with an `@powerline.com.eg` address.
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | Development server on port 3210 |
+| `npm run build` | Production build |
+| `npm test` | Full test suite (`node:test`) |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run check` | Typecheck then test |
+
+---
+
+## What is on screen
+
+| Screen | Content |
+| --- | --- |
+| **Dashboard** | Contract value, delivered, open backlog, and what is waiting on the customer |
+| **Projects** | One card per sales order; opening one gives the item-level milestone timeline |
+| **Timeline** | Per panel: the 7 milestones as cards, and one unbroken T1–T8 time track from order to today |
+| **Finance** | Value by project. Invoiced/paid/outstanding/overdue are marked unavailable, not zero |
+| **Documents** | Work-order records as FAT attachment points; files await the ERPNext File doctype |
+| **PM Console** | Staff only: phase cycle times, backlog by PM, stage distribution, contractual performance, every customer |
+
+The UI is a port of the approved prototype (`Powerline_Customer_Portal_4.html`).
+`app/globals.css` is that file's stylesheet transcribed verbatim — the only change
+is that the eight webfonts now load from `/fonts` instead of being inlined as
+base64. Nothing else was altered, so the build renders as the design that was
+signed off and any future difference is a deliberate edit rather than drift.
+
+---
+
+## How it is put together
+
+```
+Customer browser
+   │  authenticated fetch, tenant scope from a signed cookie
+   ▼
+Next.js route handlers  ── the BFF (brief §3)
+   │  one derived snapshot, cached 5 minutes
+   ▼
+Data provider ── xlsx (today)  │  ERPNext REST (next)
+```
+
+| Path | Responsibility |
+| --- | --- |
+| `src/portal/derive.ts` | **Every status a customer sees.** Raw rows → the read model |
+| `src/portal/scope.ts` | The one place a customer's view is cut from the whole |
+| `src/portal/types.ts` | The read model both providers produce |
+| `src/providers/xlsx.ts` | The PM Phase Cycle Times export |
+| `src/providers/erpnext/` | The live ERP, via the read-only service user |
+| `src/server/` | Config, session, snapshot cache, auth helpers |
+| `src/ui/` | The screens |
+| `app/api/` | The BFF endpoints |
+
+Statuses are never stored and never typed by anyone. They are computed from
+documents the factory already produces, so there is no second system to keep in
+step and nothing to go stale.
+
+### The derivation is verified, not asserted
+
+The prototype was signed off with its fully-derived dataset inline: a complete
+statement of what every status, date and percentage should be for all 480 order
+lines. `tests/portal/derivation.test.ts` replays the raw export through
+`src/portal/derive.ts` and asserts the result matches that dataset field for
+field — 480 lines × 7 milestones × (state, status, start, end, planned), plus every
+rollup and every cycle-time statistic.
+
+It currently passes exactly. If a rule changes, a customer somewhere sees a
+different status, and that test names it.
+
+To enable it (both inputs are real customer data, so both are gitignored):
 
 ```bash
-npm run check      # typecheck + full test suite
-npm test           # 203 tests
-npm run dev        # http://localhost:3000 -> /en/dashboard
+node scripts/extract-prototype-oracle.mjs path/to/Powerline_Customer_Portal_4.html
 ```
-
-Sign in at `/en/sign-in` (or `/ar/sign-in`) with an account identifier printed by
-`npm run verify`. That form is development-only.
-
----
-
-## The two ideas that shape the codebase
-
-**1. The data source is replaceable.** Everything above `PortalDataProvider` is
-unaware of Excel. `ExcelBacklogProvider` implements the port today;
-`ErpNextApiProvider` will implement the same port in M6. The domain, the composers,
-the DTOs and the UI do not change.
-
-```
-Excel export   ─┐
-                ├─→ PortalDataProvider ─→ domain rules ─→ read models ─→ DTOs ─→ UI
-ERPNext API    ─┘        (port)            (pure)         (cached)     (whitelist)
-```
-
-**2. Missing data is never faked.** The temporary source supports 3 of the 7 stages
-fully, 1 partially, and none of Finance or Documents. Two mechanisms make that
-structural rather than a matter of discipline:
-
-- **`Maybe<T>`** — every optionally-sourced field is `Known | Unknown{reason}`,
-  never `T | null`. A missing value is *not representable as zero*, so the compiler
-  will not let a screen render "0 paid" or "not delivered".
-- **`capabilities()`** — the provider *declares* what it can answer. Availability is
-  never inferred from an empty array or a caught exception, so an outage can never be
-  mistaken for "you have no invoices".
-
----
-
-## Layout
-
-```
-src/
-  domain/          pure business rules — no I/O, no framework, no clock reads
-    milestones/    the 7-stage engine, one function per PDF §4 stage
-    progress/      progress weighting, schedule position
-    model/         entities, Maybe<T>, PlainDate, capabilities
-  ports/           interfaces: PortalDataProvider, CacheStore, Clock, Session, Metrics
-  providers/       ExcelBacklogProvider (now) · FixtureProvider (tests) · ErpNext (M6)
-  application/     one composer per screen — the read models
-  dto/             customer-facing wire types (hand-written whitelist) + the blacklist
-  infra/           cache, metrics, clock, logger, config, composition root, BFF plumbing
-  ui/              components, design tokens, i18n — sees @/dto and nothing else
-app/
-  [locale]/        the screens; the root layout lives here so <html lang dir> is correct
-  api/             thin BFF routes
-tests/
-  domain/          table-driven 7-stage rules
-  providers/       adapter, on synthetic rows only
-  infra/           cache: SWR, single-flight, invalidation
-  security/        IDOR matrix · DTO blacklist · cache-key isolation
-  performance/     provider-call budgets
-  api/             route handlers end to end
-  ui/              stage states, timeline geometry, i18n parity, RTL stylesheet scan
-  architecture/    layer boundaries, enforced by the build
-data/              GITIGNORED — the real export lives here
-```
-
-Dependency direction is enforced by
-[tests/architecture/boundaries.test.ts](tests/architecture/boundaries.test.ts):
-`domain` imports nothing; `providers` and `infra` may see `domain` and `ports`;
-`application` may see `domain`, `ports` and `dto`; **`ui` may see `dto` only** — it
-cannot reach a provider, a composer, the cache or the environment. Only the composition
-root knows which provider is active, so nothing else can break the Excel → ERPNext swap.
-
----
-
-## Performance
-
-Measured, not asserted. Numbers below are from `npm run verify` on the real export.
-
-Read models, from `npm run verify`:
-
-| | cold | warm |
-|---|---|---|
-| Dashboard (largest tenant: 4 projects, 61 lines) | 3 ms - 2 provider calls | 0 ms - **0 provider calls** |
-| Project detail (largest project: 27 items) | 2 ms - 3 provider calls | 0 ms - **0 provider calls** |
-
-Rendered pages, production build:
-
-| Page | HTML | gzipped | server time |
-|---|---|---|---|
-| Dashboard | 52 KB | **12 KB** | 22 ms |
-| Projects list | 32 KB | 9 KB | 40 ms |
-| Project detail - 27 items, stages | 270 KB | **42 KB** | 53 ms |
-| Project detail - 27 items, timeline | 128 KB | 27 KB | 28 ms |
-| Project detail - Arabic | 291 KB | 46 KB | 56 ms |
-| Finance (unavailable state) | 14 KB | 5 KB | 27 ms |
-
-**The UI ships no client JavaScript of its own.** Every page is a Server Component; the
-view toggle, item expansion, language switch and navigation are plain links, so there is
-nothing to hydrate and nothing for the browser to orchestrate.
-
-- **No N+1, by construction.** The port offers no per-item read — there is no
-  `getLine` or `getWorkOrder` method a caller could loop over. A 27-item project costs
-  the same number of calls as a 1-item project, asserted in
-  [tests/performance/call-budget.test.ts](tests/performance/call-budget.test.ts).
-- **The cached artifact is the composed DTO**, so a warm request is one store read
-  and a JSON parse — no provider call, no domain computation, no field mapping. It
-  also means a cached payload physically cannot contain an internal field.
-- **Tenant-scoped keys by construction.** `CacheKey` is branded and every builder
-  requires a `CustomerId`, which can only come from a verified session.
-- **O(1) invalidation.** A per-tenant generation counter is part of every key, so an
-  ERPNext webhook bumps one integer to retire all of that tenant's entries — no
-  `SCAN`, no key enumeration, no window where one tenant sees a mix of payloads.
-- **Stale-while-revalidate + single-flight.** A stale entry answers immediately and
-  refreshes behind the response; a cache expiry under load causes one recomputation,
-  not one per request.
-- **Instrumented from the first commit.** `withMetrics()` wraps any provider, so the
-  ERPNext call budget is already being measured before ERPNext exists. Every request
-  logs `providerCalls`, `providerMs`, cache outcome, `composeMs` and `totalMs`, and
-  carries `Server-Timing` outside production.
-- **Page weight does not scale with expansion.** Item stage detail is selected by URL
-  (`?item=...`) and rendered server-side, rather than pre-rendered for every item and
-  hidden with CSS. That change took the 27-item page from 2 MB to 42 KB gzipped and made
-  the expanded item deep-linkable.
-
-Redis is implemented ([`UpstashCacheStore`](src/infra/cache/upstash-store.ts)) and
-selected with `PORTAL_CACHE_DRIVER=upstash`. `MemoryCacheStore` backs development and
-tests against the same contract.
 
 ---
 
 ## Security
 
-| Control | Where |
-|---|---|
-| Tenant resolved from the session, never from a request parameter | `PortalDataProvider` takes a branded `CustomerId` first in every method; only `SessionResolver` produces one |
-| Cross-tenant access impossible | IDOR matrix over every endpoint and identifier — [tests/security/tenant-isolation.test.ts](tests/security/tenant-isolation.test.ts) |
-| A foreign id is indistinguishable from a missing one | Both return 404. A 403 would confirm the id exists |
-| No blacklisted field in any response | Deep scan of every composed payload — [tests/security/dto-blacklist.test.ts](tests/security/dto-blacklist.test.ts) |
-| No cache cross-contamination | [tests/security/cache-isolation.test.ts](tests/security/cache-isolation.test.ts) |
-| Real data out of Git | `data/`, `*.xlsx` and `.env*` gitignored from the first commit; tests run on synthetic fixtures only |
-| No credential in the browser | No `NEXT_PUBLIC_` variable exists, asserted by the architecture test |
-| Audit log per request | Structured line with a **hashed** tenant — a plaintext tenant would turn the log into a customer list |
+| Requirement (brief §7) | How it holds |
+| --- | --- |
+| Tenant isolation | The customer is read from an HMAC-signed cookie and never from a request parameter. `scopeToCustomer` is the only code that cuts a payload |
+| No cross-tenant access | `tests/security/tenant-isolation.test.ts` asserts a scoped payload contains no trace of another tenant — not a name, an item code or an order number |
+| No forged sessions | `tests/security/session.test.ts` proves a customer cannot edit the cookie to become another customer or to become staff |
+| Portfolio data withheld | A customer payload carries `{ exportDate }` and nothing else from the company-wide metadata. Total backlog, PM workloads and product mix are structurally absent |
+| Restricted ERP user | The ERPNext client authenticates as the dedicated read-only service user, and the credential never leaves `client.ts` |
+| ERP never called from the browser | The browser only ever talks to this app |
+| Load protection | One snapshot, cached, single-flight. A hundred simultaneous customers cause one read |
 
-Rework, costs, margins, BOM, supplier data, warehouse names, internal work order
-ids, internal cycle-time KPIs and the `On Hold` flag are all excluded — several are
-modelled in the domain but appear in no DTO, and their absence is tested.
+### Before this goes online
 
----
+**`PORTAL_DEMO_MODE` must be `0`.** The prototype's sign-in screen shows the
+company's total open backlog and lists all 107 customers with their names and open
+values — to an unauthenticated visitor. That is right for a demo and wrong for the
+internet. The app refuses to boot with it enabled in production unless
+`PORTAL_ALLOW_DEMO_IN_PRODUCTION=1` is also set for a deliberate internal staging
+deployment.
 
-## The UI
+**Sign-in is not authentication yet.** The current export carries no contact
+records, so there is nobody to check a password against; the demo picker stands in
+for it. Provisioning logins from ERPNext Customer → Contact — with password
+hashing, OTP, lockout and the admin-contact flag that governs financial visibility —
+replaces the body of `POST /api/auth/session` and nothing else. Every other route
+already reads the session rather than the sign-in.
 
-| | |
-|---|---|
-| Screens | Dashboard, Projects, Project detail (Stages / Timeline), Finance, Documents, Sign-in |
-| Languages | English and Arabic, with `lang`/`dir` on `<html>` and a full RTL layout |
-| RTL method | CSS logical properties only, enforced by [tests/ui/rtl-css.test.ts](tests/ui/rtl-css.test.ts) - the timeline mirrors because its offsets are `inset-inline-start` percentages |
-| Responsive | Timeline scrolls in its own container; the projects table becomes self-labelling cards below 760px; the item rail stacks below 1000px |
-| Styling | Hand-written CSS with design tokens + CSS Modules. Not Tailwind: v4's engine is a native binary this machine blocks, and logical properties are more direct for a bidirectional UI |
-| Client JS | None |
-
-### Missing data, four levels
-
-| Level | Treatment |
-|---|---|
-| Field | An em-dash plus the reason, in a colour used for nothing else. Never blank, never `0` |
-| Stage | Four distinguishable states. *Not yet* (light outline) and *cannot be shown* (hatched, `?`) are deliberately different - conflating them would imply a test failed or a payment lapsed |
-| Section | Titled panel naming what is missing, why, and which source |
-| Scope | Persistent banner: "Data as of 11 Aug 2026 - open orders only", with an expandable list of what the extract excludes |
-
-Progress is never rendered as a bare percentage. It always reads **"97% of stages 1-3"**,
-because the source cannot see the other four.
-
-## What the current data source cannot do
-
-Reported honestly by the code, not hidden:
-
-| | |
-|---|---|
-| Stages 1–3 (drawings, material, manufacturing) | ✅ derivable from evidence |
-| Stage 4 (FAT) | ⚠️ status only — no Stock Entry data, so the outcome is unobservable and the stage never completes |
-| Stages 5–7 (payment, delivery, financial clearance) | ❌ no invoice, payment, delivery or currency data |
-| Finance and Documents modules | ❌ unavailable |
-| Delivered quantities | ❌ the export is open-backlog only, so a count would read as zero everywhere |
-| Planned dates | ⚠️ material and manufacturing end only; no planned start for any stage |
-| Tenant identity | ⚠️ provisional — see D1, a pre-production blocker |
+Also outstanding from the brief: a penetration test as a launch gate, and an audit
+log of customer requests.
 
 ---
 
-## Tooling note
+## Connecting the live ERP
 
-Node 24 runs TypeScript natively and `node:test` is the test runner, because this
-machine's Application Control policy blocks esbuild's native binary. Consequence:
-TypeScript's non-erasable syntax (parameter properties, enums, namespaces,
-decorators) is unavailable, and an architecture test enforces that. `next build`
-works — it falls back to its WASM compiler. See the end of
-[docs/DECISIONS.md](docs/DECISIONS.md).
+`src/providers/erpnext/` implements the §9 queries against the documented v15 REST
+API and produces the same rows the Excel provider does, so both go through the same
+verified derivation and cannot drift apart. It is typed end to end but **has not
+been run against a live instance** — the ERP was not reachable from the machine
+this was built on.
+
+To switch over: set `PORTAL_DATA_PROVIDER=erpnext` plus the `ERPNEXT_*` credentials.
+See [docs/ERPNEXT.md](docs/ERPNEXT.md) for the first-run checklist and the ERP-side
+preparation the brief lists in §8.
+
+---
+
+## Data governance
+
+`data/` is gitignored and untracked, and so is every `.xlsx`. The backlog export,
+the derived snapshot and the prototype oracle are all real customer data: 107 named
+companies, their order values and their delivery performance.
+
+**Before pushing to GitHub**, confirm the repository is private and check that
+nothing under `data/` has been added. `git status --ignored` will show it sitting
+correctly outside version control.
+
+---
+
+## This machine
+
+Application Control blocks unsigned native binaries under the user profile, so
+`esbuild` cannot run — which rules out `tsx`, `vitest` and anything built on them.
+Instead Node runs TypeScript natively and `node:test` is the runner; both are
+zero-dependency and behave the same in CI. `tools/alias-loader.mjs` teaches Node the
+`@/*` alias so tests execute exactly the source that `tsc` and Next.js see.
+
+Two consequences: TypeScript's non-erasable syntax is unavailable (no enums,
+parameter properties, namespaces or decorators), and Next.js falls back to its WASM
+compiler, which costs a few seconds per build. Tailwind is out for the same reason —
+its v4 engine is a native binary — which is moot here, since the prototype's own
+stylesheet is what guarantees the design matches.

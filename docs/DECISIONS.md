@@ -1,290 +1,235 @@
 # Decision log
 
-Every entry records what was decided, why, and where it is enforced in code. Items
-marked **BLOCKER** must be resolved before production.
+What was decided, why, and where it is enforced in code. Items marked **OPEN** need
+a business answer.
 
 ---
 
-## D1 — Tenant identity is provisional · **BLOCKER**
+## D0 — The approved prototype is the specification for the UI
 
-**Decided:** derive the tenant key from the customer name for the prototype. Not
-production-safe. Keep the model ready for the real ERPNext `Customer.name`.
+**Decided:** `Powerline_Customer_Portal_4.html` is authoritative for what the portal
+shows and how it looks. The engineering brief and the backlog export are reference
+material for *understanding* the domain, not for overriding the approved design.
 
-**Why it is a blocker, not cosmetic:** the key *is* the name. If a customer's name
-is edited in ERPNext, the derived key changes and the same company becomes a
-different tenant — its history vanishes from the portal. Two spellings of one
-company become two tenants. Normalisation (NFKC, bidi-mark stripping, case,
-punctuation, Arabic diacritics) reduces the blast radius; only a real customer id
-removes it.
+**Consequence:** `app/globals.css` is the prototype's stylesheet transcribed
+verbatim (only the inlined base64 webfonts were moved to `/fonts`), and the React
+components reproduce its DOM structure and class names. Pixel parity is therefore a
+property of the transcription rather than something re-achieved by eye, and any
+future difference is a deliberate edit.
 
-**Where enforced:**
-- [`src/providers/excel/identity.ts`](../src/providers/excel/identity.ts) — derivation, normalisation, and `IDENTITY_ASSURANCE`
-- `assertIdentitySafeForProduction()` throws when `NODE_ENV=production` with a provisional key, called from [`src/infra/container.ts`](../src/infra/container.ts). `PORTAL_PREVIEW_MODE=1` is the one deliberate override for a non-customer-facing staging deployment, and it logs a warning on every boot — see the M4 section
-- `Customer.erpCustomerId` is a `Maybe`, currently `not_in_source`
-- Surfaced to the customer-facing payload as `unavailable.identity` so it is visible in the UI, not just in a document
+**This reverses four earlier decisions** taken when the brief alone was the
+specification. They were conservative readings of §7.3 made in the absence of an
+approved design; the approved design answers each of them directly. Recorded here so
+the reasoning is not simply lost:
 
-**To resolve:** add `Customer.name` to the export (or move to the ERPNext
-provider), populate `erpCustomerId`, and switch `IDENTITY_ASSURANCE` to `verified`.
+| Reversed | Was | Now |
+| --- | --- | --- |
+| Money is not shown | `Backlog Amount` withheld — no currency column, and dividing by quantity reveals unit price | Contract, delivered and backlog values are shown. The unit price recovered is the customer's **own** price on their **own** order, which they already hold in their contract. Currency is EGP, stated and never converted |
+| `On Hold` is internal | Business meaning unconfirmed, possibly a credit hold | Shown as an "On hold" pill — see **OPEN-1** |
+| Component item codes withheld | Supplier part numbers count as supplier data under §7.3 | Item codes are shown as the prototype shows them |
+| Revision count internal | "12 revisions" is a claim about who caused delay | Shown in a timeline tooltip only, as a count, with no attribution |
 
----
-
-## D2 — Project manager display name is customer-facing
-
-**Decided:** show the PM's display name. Never employee email, phone, employee id
-or any other internal employee information.
-
-This resolves the conflict between PDF §2 ("no employee names") and §6.3 plus both
-mockups ("PM: Maha K."). The intent was employee *contact details*.
-
-**Where enforced:**
-- `Project.projectManager` is modelled as `{ displayName }` only — there is no email or phone field to leak
-- `FORBIDDEN_KEY_PATTERNS` rejects any `email`, `phone`, `mobile` or `employee` key
-- `FORBIDDEN_VALUE_PATTERNS` rejects any email-shaped *value*, under any key name
-- Tested in [`tests/security/dto-blacklist.test.ts`](../tests/security/dto-blacklist.test.ts)
+What §7.3 forbids has **not** been relaxed: no cost or margin field, no BOM, no
+supplier record, no internal remark, no rework reason, no employee contact detail
+and no warehouse name reaches the portal. None of those exist in the current source
+at all.
 
 ---
 
-## D3 — No money is presented to customers yet
+## D1 — Statuses are derived, never stored
 
-**Decided:** `Backlog Amount` is not contract value. Assume no currency. Do not
-present it as financial information. It may be retained internally as
-`openOrderValue`.
+Every status is computed from documents the factory already produces. There is no
+field anyone fills in to drive the portal, so there is nothing to go stale and no
+second system to keep in step.
 
-The export has **no currency column at all**, and PDF §5 requires document currency
-always. Dividing the amount by quantity also reveals unit price.
-
-**Where enforced:**
-- `Money.currency` is itself a `Maybe`, so an amount and its currency cannot be separated
-- `Project.openOrderValue` and `OrderLine.lineValue` exist in the domain and appear in **no** DTO
-- `FORBIDDEN_KEY_PATTERNS` rejects `backlogamount`, `openordervalue`, `linevalue`
-- A test asserts no payload contains `EGP`, `currency`, `amount`, `grandTotal` or `contractValue`
-- Stages 5 and 7 report `unavailable`, and the Finance screen gets `unavailable.finance`
+**Where enforced:** `src/portal/derive.ts` is the only place a status is decided,
+and both providers feed it.
 
 ---
 
-## D4 — `On Hold` stays internal
+## D2 — The derivation is verified against the approved dataset
 
-**Decided:** do not expose the raw value until its business meaning and
-customer-safe wording are confirmed. 63 rows across 14 projects carry it; it may be
-a credit hold.
+**Decided:** correctness is demonstrated, not argued.
 
-**Where enforced:** `Project.onHold` exists in the domain, appears in no DTO, and
-`onhold` is in `FORBIDDEN_KEY_PATTERNS` with a test asserting its absence.
+The prototype was signed off with its fully-derived dataset inline. That is a
+complete statement of the expected output for all 480 lines, so
+`tests/portal/derivation.test.ts` replays the raw export through our own rules and
+asserts equality field by field — every milestone state, status, actual start,
+actual end and planned date, plus every rollup and cycle-time statistic.
 
----
+It passes exactly. Two tolerances are deliberate and documented in the test: floats
+compare to two decimal places, and strings compare trimmed (23 item names carry a
+trailing space the prototype preserved and our loader strips).
 
-## D5 — Build now, do not wait for more exports
-
-**Decided:** proceed on the current Excel data. Sales Invoice, Payment Entry,
-Delivery Note, Stock Entry, customer identifiers, currency, PO numbers and contacts
-may arrive later. Do not block.
-
-**Where enforced:** `ProviderCapabilities`. Every unavailable area is a declared
-flag, so each new export or the ERPNext provider flips a flag rather than requiring
-new UI, new DTOs or new rules. [`tests/domain/stages.test.ts`](../tests/domain/stages.test.ts)
-proves stages 4–7 light up under the ERPNext capability set with no rule change.
+**Consequence:** the ERPNext provider produces the same intermediate rows and
+inherits the same verified rules, so the two sources cannot drift apart.
 
 ---
 
-## Decisions taken by default (conservative, still open for review)
+## D3 — Tenant identity is the customer name · **BLOCKER for production**
 
-These were raised in discovery and not directed. The conservative option was taken
-and is easy to reverse.
+**Decided:** scope by `Customer` name, because that is all the export carries.
 
-### D6 — Component item codes are withheld
+**Why it is a blocker:** the key *is* the name. Renaming a customer in ERPNext makes
+them a different tenant and their history vanishes; two spellings of one company
+become two tenants.
 
-37 export rows are loose components (MCB, Tmax, Copper Busbar) whose item codes are
-supplier part numbers, e.g. ABB `1SDA066317R1`. PDF §7.3 forbids supplier data
-reaching the portal, so `ProjectItemDto.itemCode` is `{ known: false, reason:
-'restricted' }` on `supplied_component` lines and the description carries the item.
+**Resolution:** the ERPNext provider supplies the real `Customer.name` document id.
+Switch scoping to it when that provider goes live.
 
-To reverse: remove the branch in `toItem()` in
-[`src/application/project-detail.ts`](../src/application/project-detail.ts).
+**Where enforced:** `src/portal/scope.ts`.
 
-### D7 — Revision count is internal
+---
 
-148 rows have one drawing revision; one has twelve. Displaying "12 revisions" is a
-claim about who caused delay. `DrawingRecord.revisionCount` is modelled but not
-exposed; only the current drawing status is.
+## D4 — Project manager display name is customer-facing
 
-### D8 — Component lines are shown, without a tracker
+Show the PM's name; never their email, phone or employee record. This resolves the
+tension between §2 ("no employee names") and §6.3 plus both mockups ("PM: …") — the
+intent was employee *contact details*. The model carries a name and has no field for
+anything else.
 
-They are real ordered items, so hiding them would understate the order. They are
-classified `supplied_component`, carry `hasProductionJourney: false`, and their
-stages report `not_applicable` rather than an empty tracker that would read as
-"nothing has happened".
+---
 
-Classification uses the report's own signal: it leaves the RFD count columns
-*blank* (not zero) for such items. Blank-versus-zero, not a hand-maintained list of
-item groups.
+## D5 — An unavailable figure is never rendered as zero
 
-### D9 — Project display name is the raw project name
+Stages 5 and 7, and the invoiced/paid/outstanding/overdue tiles, have no source
+document in the current export. They render hatched, with a dashed-square icon and a
+tooltip naming the missing doctype.
 
-PDF §8.6 leaves the customer-facing format open, and the PO number it suggests is
-absent from this export. The leading code (`520-25-`) is parsed into `projectCode`
-separately so a display rule can be applied later without reparsing.
+A portal that shows an unknown balance as "EGP 0" has told the customer something
+false, and the entire commercial case for the portal is that its numbers can be
+trusted without a phone call.
 
-### D10 — Dev session, not real auth
+**Where enforced:** `STATE.gap` in `src/portal/types.ts`; `.tile.pend` and the `gap`
+pill in the UI. Stage 5 is deliberately *not* derived from work-order status alone:
+it could then never reach "Paid", so a customer who had already paid would see a
+permanent payment demand.
 
-The export has no contact or email data, so no login can be provisioned from it.
-[`src/infra/session/dev-session.ts`](../src/infra/session/dev-session.ts) issues an
-HMAC-signed cookie and refuses to run in production. It is not "no auth in dev": the
-signature means a customer cannot edit the cookie to become another tenant, so the
-tenant-isolation tests exercise the real trust boundary. Real authentication
-(password hashing, OTP, lockout, the admin-contact flag) is M5.
+---
+
+## D6 — Progress excludes unavailable stages from its denominator
+
+`pct` averages the five stages that can be computed, not all seven. Counting an
+unavailable stage as incomplete would cap every panel at 71%; letting it enter the
+denominator later would let a percentage **fall** while work moved forward.
+
+---
+
+## D7 — The planned lane is markers, not a second bar
+
+Mockup 2 draws each stage as a planned bar above an actual bar. ERPNext stores
+planned *end* dates and **no planned start for any stage**, so a planned bar would
+have to invent its own leading edge — and an invented edge in a delay conversation is
+worse than no edge. The plan is drawn as carets and diamonds, and the chart says so
+beneath itself. The overshoot past a marker is hatched red.
+
+Adding `custom_planned_fat_date` and `custom_planned_delivery_date` makes their
+markers appear with no code change.
+
+---
+
+## D8 — Demo affordances are a flag, and refuse to default on in production
+
+The prototype's sign-in screen publishes the company's total backlog and all 107
+customer names and values to an unauthenticated visitor. Correct for a demo,
+unacceptable on the internet.
+
+`PORTAL_DEMO_MODE` controls both. It defaults on outside production and the app
+**refuses to boot** with it on in production unless `PORTAL_ALLOW_DEMO_IN_PRODUCTION=1`
+is also set for a deliberate internal staging deployment.
+
+**Where enforced:** `src/server/config.ts`; `gatewayView` in `src/portal/scope.ts`;
+`tests/security/tenant-isolation.test.ts`.
+
+---
+
+## D9 — Sign-in issues a session; it does not yet verify a credential
+
+The export has no contact records, so there is nobody to check a password against.
+Rather than build authentication that looks real and is not, sign-in is gated on
+demo mode and refuses outright without it.
+
+The session itself **is** real: HMAC-signed, httpOnly, expiring, naming exactly one
+tenant, and proved unforgeable in `tests/security/session.test.ts`. Real
+authentication replaces the body of `POST /api/auth/session` and nothing else,
+because every other route already reads the session rather than the sign-in.
 
 ---
 
 ## Derivation decisions inside the rule engine
 
-Recorded here because they are interpretations, not transcriptions, of PDF §4.
+Interpretations, not transcriptions, of §4. Each is verified against the approved
+dataset.
 
-### `Main Created` is not the manufacturing actual start
+**A joined work-order status resolves to the most advanced.** 28 lines carry several
+work orders with statuses joined as text ("Completed, Not Started"). The line has
+demonstrably reached the furthest point; reporting the least advanced would hide real
+progress. `Closed` counts as complete — ERPNext closes a work order that will not be
+worked further, and the brief's rule table predates that status.
 
-It is the Work Order `creation` timestamp. ERPNext has a real `actual_start_date`
-which this export does not carry. Where it is missing, stage 3's actual start falls
-back to the **material-ready** date, because that is the company's own definition of
-the manufacturing phase — its T5 metric is exactly `manufacturing_complete −
-material_ready`, which held on 174 of 174 rows. The fallback is recorded in
-`Milestone.provenance` and surfaced to the UI as `actualStartBasis:
-'material_ready_proxy'` so it can be labelled. Work Order creation is never used.
+**Manufacturing starts when material lands.** Where that timestamp is absent, the
+work order's creation is the only honest fallback.
 
-### Several work orders on one line roll up to the least advanced status
+**Drawings approval starts at the earliest drawing activity of any kind.** Taking the
+release date would let a revision cycle make the stage appear to start after it ended.
 
-28 rows carry more than one work order with statuses joined as text ("Completed, Not
-Started"). Differing statuses become `mixed`, which the engine resolves to
-*in progress*. Reporting the most advanced status would overstate progress.
+**Only an *initial* drawing submission opens the chain.** A revision is not a first
+submission, so T1 is measured from Initial Approval RFDs alone.
 
-### `Closed` and `Disassembled` are not in the §4 rule table
+**The chain is forced monotonic.** Production data contains timestamps stamped out of
+order; a bar must never be drawn running backwards. Where a middle timestamp is
+missing the phases either side are merged and labelled as one span ("T3–T4") rather
+than a boundary being guessed.
 
-`Closed` is treated as complete only when there is a real completion date to point
-at; otherwise the stage reports unknown. `Disassembled` (rework) is recorded in
-adapter diagnostics as an unmapped status rather than being guessed at. Both should
-be added to the rule table by the business.
+**T1–T8 are the gaps between consecutive chain timestamps.** Verified as an exact
+identity against the report's own T columns on all 480 lines, which is what licenses
+the ERPNext provider to compute them rather than read them from a report.
 
-### Stage 4 is uniformly `partial`, never `default`
+**The as-of date is recovered from the rows.** Every row's `Age Since SO` implies the
+same date; the majority wins. The filename also carries a date, but a filename is not
+evidence.
 
-Without Stock Entry data the FAT *outcome* is unobservable in both directions, so
-every branch is marked `partial`. If the derivation varied by branch, stage 4 would
-enter and leave the progress basis as an item advanced — the denominator would
-change mid-journey and a percentage could **fall** while work moved forward.
+**Percentiles are nearest-rank, not interpolated.** The p90 is quoted to the business
+as "nine in ten finish within N days", and that sentence is only true of a value that
+actually occurred.
 
-### Stage 5 is unavailable rather than "delivery payment due"
+**Percentages round half to even**, so a value landing exactly on .5 resolves the same
+way on every platform.
 
-"Delivery Payment Due" is derivable from work order status alone. It is deliberately
-not shown: with no Payment Entry data the stage could never reach "Paid", so a
-customer who had already paid would see a permanent payment demand. An unavailable
-stage is honest; a one-way stage is not.
+---
 
-### Progress covers stages 1–3 and says so
+## Open questions
 
-`progressPercent` always travels with `progressBasis`. The UI must render "97% of
-stages 1–3", never a bare "97% complete", which would imply a passed FAT, a cleared
-payment and a delivered panel.
+**OPEN-1 — What does "On hold" mean to a customer?** 63 lines across 14 orders carry
+the flag and the prototype shows it. If it is a *credit* hold, showing it is right
+and useful; if it is internal scheduling, the wording needs to change. PM and sales
+to confirm the customer-facing phrasing.
 
-### The contractual date is stored, never derived
+**OPEN-2 — Neutral wording for rework and delay.** Rework currently reads "Final
+quality adjustments in progress", which is neutral and carries no reason. Confirm it
+is the wording the business wants.
 
-`Contractual Date ≠ SO Submitted + Contractual Period` on 277 of 311 rows. They are
-two independent fields.
+**OPEN-3 — Contractual date source in ERPNext.** The export has a dedicated
+`Contractual Date`, which is *not* `SO Submitted + Contractual Period` on 277 of 311
+rows — they are independent fields. The ERPNext provider currently falls back to the
+item's `delivery_date`. Confirm which field is authoritative.
 
-### The export's as-of date is recovered from the data
-
-`Age Since SO = asOf − SO Submitted`, so every row implies the same date; the
-majority wins and disagreements are counted. The filename also carries a date, but a
-filename is not evidence. The frozen `Age Since SO` and `Days To Contractual`
-columns are never surfaced — every countdown is recomputed against a live clock in
-`Africa/Cairo`.
+**OPEN-4 — Customer-facing project names.** Projects use Arabic names such as
+`575-23-وحده صحيه`. The portal shows them as they are. §8.6 leaves the display
+convention open.
 
 ---
 
 ## Environment constraint (not a product decision)
 
-This machine's Application Control policy blocks unsigned native binaries under the
-user profile. `esbuild.exe` cannot spawn, which aborts installation of `tsx`,
-`vitest` and anything else built on esbuild.
+Application Control on the build machine blocks unsigned native binaries under the
+user profile, so `esbuild` cannot spawn — ruling out `tsx`, `vitest` and anything
+built on them. Node runs TypeScript natively and `node:test` is the runner; both are
+zero-dependency and behave identically in CI. `tools/alias-loader.mjs` teaches Node
+the `@/*` alias so tests execute exactly the source `tsc` and Next.js see.
 
-Resolved without changing the architecture: Node 24 runs TypeScript natively (type
-stripping) and `node:test` is the test runner. Both are zero-dependency.
-`tools/alias-loader.mjs` teaches Node's resolver the `@/*` alias and extensionless
-imports, so tests and scripts execute exactly the source that `tsc` and Next.js see
-— no build step in between.
-
-Two consequences to keep in mind:
-- TypeScript's non-erasable syntax is unavailable: no parameter properties, enums,
-  namespaces or decorators. A test in
-  [`tests/architecture/boundaries.test.ts`](../tests/architecture/boundaries.test.ts)
-  enforces the portable subset.
-- Next.js logs a warning and falls back to its WASM compiler. `next build` succeeds;
-  compilation is a few seconds slower.
-
-
----
-
-## M4 (UI) decisions
-
-### The planned lane is markers, not bars
-
-Mockup 2 draws each of the 7 stages as a planned bar above an actual bar. The source
-records a planned *finish* for material and manufacturing and **no planned start for any
-stage**, so a planned bar would have to invent its own leading edge. The planned lane
-therefore draws one diamond per known planned date, and the chart states this in a note
-beneath it so that missing bars are not read as "no plan". The code path for real planned
-spans exists and is tested; it activates when ERPNext supplies `planned_start_date`.
-
-### Stage colour encodes state, not stage identity
-
-The mockup's seven-step monochrome orange ramp leaves stages 5-7 nearly
-indistinguishable. Stage identity is carried by position, number and label instead,
-freeing colour for the distinction that matters here: complete / in progress / not yet /
-cannot be shown. The last two are the pair most easily confused and the pair it is most
-important to keep apart.
-
-### Item detail is a URL, not a `<details>` element
-
-Keeping all 27 item tables in the DOM and hiding them with CSS made the largest project
-page 2 MB, 1.7 MB of it Next's client-navigation payload, which scales with element
-count -- for content nobody had asked to see. Selecting an item is now a link
-(`?item=...`) re-rendered server-side from the already-cached read model. Page weight
-stopped scaling with item count (42 KB gzipped), and the expanded item became
-deep-linkable. Still no client JavaScript.
-
-### Two real bugs found while rendering real data
-
-**Inverted stage-1 period.** A drawing released in January and revised in July made stage
-1 report an actual start after its actual end, which the timeline drew as an 82%-wide bar
-claiming drawings approval took six months. Fixed in `deriveStage1`: the approved branch
-now takes the *earliest* submission, which is always on or before the release. The
-timeline additionally refuses to draw any span whose start does not precede its end,
-since the export contains out-of-order dates by the adapter's own count. Both have
-regression tests.
-
-**"1 days late".** Counted phrases now have `.one` and `.other` variants in both
-languages, selected by `pluralizer()`.
-
-### `PORTAL_PREVIEW_MODE`
-
-The D1 blocker originally made a production build unstartable on the Excel provider,
-which also made it impossible to measure real page weight and latency. A staging or pilot
-deployment legitimately needs that, and an absolute block invites someone to weaken the
-check itself. `PORTAL_PREVIEW_MODE=1` now permits it, logs a warning on every boot, and
-gates the preview sign-in on the same flag.
-
-Verified: without the flag, a production build serves **no customer data on any route**.
-Pages render the "sign-in not configured" state, the portal API returns 500, and
-`/api/health` returns a structured 503 naming the blocker.
-
-### Styling: CSS Modules, not Tailwind
-
-PDF section 3 suggests Tailwind. Tailwind v4's engine is a native Rust binary, which this
-machine's Application Control policy blocks -- the same constraint that removed esbuild.
-Writing logical properties directly (`margin-inline-start`, `inset-inline-start`) is also
-more direct for a bidirectional UI than a set of `rtl:` overrides, and
-`tests/ui/rtl-css.test.ts` fails the build on any physical property, so RTL correctness
-holds for stylesheets nobody has opened in Arabic.
-
-### Arabic uses Latin numerals
-
-Every number on the portal sits beside an identifier a customer may need to quote back --
-a sales order number, a day count in an email. Mixing numeral systems there costs more
-than idiomatic Arabic-Indic digits would gain. Reversible in one place
-(`src/ui/i18n/locale.ts`) if the business prefers otherwise.
+Consequences: TypeScript's non-erasable syntax is unavailable (no enums, parameter
+properties, namespaces, decorators), and Next.js falls back to its WASM compiler,
+costing a few seconds per build. Tailwind is out for the same reason — its v4 engine
+is a native binary — which is moot, since transcribing the prototype's own stylesheet
+is what guarantees the design matches.
