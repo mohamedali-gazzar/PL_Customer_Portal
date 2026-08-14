@@ -1,0 +1,36 @@
+# ── REAL COMPANY DATA — NEVER COMMIT ────────────────────────────────
+# This block is deliberately first. The Excel backlog export and anything
+# derived from it are real customer data (names, order values, schedules).
+data/
+*.xlsx
+*.xlsm
+*.xls
+*.csv
+snapshots/
+*.snapshot.json
+
+# ── Secrets ─────────────────────────────────────────────────────────
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# ── Build / tooling ─────────────────────────────────────────────────
+node_modules/
+.next/
+out/
+build/
+dist/
+coverage/
+*.tsbuildinfo
+next-env.d.ts
+.vercel/
+.turbo/
+
+# ── Editor / OS ─────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json

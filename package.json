@@ -1,0 +1,41 @@
+{
+  "name": "pl-customer-portal",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.6"
+  },
+  "comments": {
+    "tooling": [
+      "No esbuild/swc-dependent dev tooling (tsx, vitest, jest+ts-jest). This machine's",
+      "Application Control policy blocks unsigned native binaries under the user profile,",
+      "so esbuild.exe cannot spawn and its postinstall aborts the whole install.",
+      "Instead: Node 24 runs TypeScript natively (type stripping) and node:test is the",
+      "test runner. Both are zero-dependency and behave identically on CI.",
+      "tsc itself is pure JavaScript and works fine."
+    ]
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "typecheck": "tsc --noEmit",
+    "test": "node --import ./tools/alias-loader.mjs --test tests/**/*.test.ts",
+    "verify": "node --import ./tools/alias-loader.mjs scripts/verify.ts",
+    "check": "npm run typecheck && npm run test"
+  },
+  "dependencies": {
+    "@upstash/redis": "^1.35.0",
+    "exceljs": "^4.4.0",
+    "next": "^15.4.0",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.0",
+    "@types/react": "^19.1.0",
+    "@types/react-dom": "^19.1.0",
+    "typescript": "^5.8.0"
+  }
+}

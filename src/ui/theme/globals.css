@@ -1,0 +1,199 @@
+/*
+ * Design tokens and base styles.
+ *
+ * Hand-written CSS with CSS Modules per component rather than Tailwind, for two
+ * reasons. First, Tailwind v4's engine is a native Rust binary and this machine's
+ * Application Control policy blocks those — the same constraint that removed esbuild
+ * (see docs/DECISIONS.md). Second, this UI is bidirectional, and writing logical
+ * properties directly (`margin-inline-start`, `inset-inline-start`) makes RTL a
+ * property of the stylesheet rather than a set of `rtl:` overrides to remember.
+ *
+ * The palette follows the mockups: near-black header, Powerline orange as the single
+ * accent, warm off-white canvas, white cards with hairline borders.
+ */
+
+:root {
+  /* Brand */
+  --pl-orange: #d9510d;
+  --pl-orange-hover: #b8430a;
+  --pl-orange-soft: #fdf0e7;
+  --pl-orange-border: #f4c6a8;
+
+  /* Ink */
+  --ink-900: #16130f;
+  --ink-800: #2a251f;
+  --ink-700: #453e35;
+  --ink-500: #6f665c;
+  --ink-400: #8d8478;
+  --ink-300: #b5aca1;
+
+  /* Surfaces */
+  --canvas: #f8f7f4;
+  --surface: #ffffff;
+  --surface-sunken: #f2f0ec;
+  --header: #17140f;
+  --header-ink: #f6f3ee;
+  --header-ink-dim: #a9a29a;
+
+  --line: #e6e2db;
+  --line-strong: #d3cdc4;
+
+  /* Semantic */
+  --ok: #1c7a4f;
+  --ok-soft: #e8f5ee;
+  --warn: #97650a;
+  --warn-soft: #fdf3e0;
+  --danger: #b02a21;
+  --danger-soft: #fdeceb;
+  --info: #2a5d94;
+  --info-soft: #eaf1f9;
+
+  /*
+   * Unavailable data has its own colour, deliberately outside the semantic scale.
+   * "We cannot show this" is not a status — it must never be mistaken for
+   * not-started (neutral) or for a problem (red).
+   */
+  --void: #7b8794;
+  --void-soft: #eef1f4;
+  --void-border: #c4cdd6;
+
+  /* Type */
+  --font: 'Segoe UI', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --font-ar: 'Segoe UI', 'Noto Naskh Arabic', 'Tahoma', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Mono', 'Consolas', monospace;
+
+  --text-xs: 0.6875rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-lg: 1.0625rem;
+  --text-xl: 1.375rem;
+  --text-2xl: 1.75rem;
+  --text-3xl: 2.125rem;
+
+  /* Space */
+  --s1: 0.25rem;
+  --s2: 0.5rem;
+  --s3: 0.75rem;
+  --s4: 1rem;
+  --s5: 1.5rem;
+  --s6: 2rem;
+  --s7: 3rem;
+
+  --radius: 10px;
+  --radius-sm: 6px;
+  --radius-pill: 999px;
+
+  --shadow-sm: 0 1px 2px rgb(22 19 15 / 6%);
+  --shadow: 0 1px 3px rgb(22 19 15 / 7%), 0 8px 24px -12px rgb(22 19 15 / 10%);
+
+  --page-max: 1400px;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--canvas);
+  color: var(--ink-800);
+  font-family: var(--font);
+  font-size: var(--text-base);
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+
+html[lang='ar'] body {
+  font-family: var(--font-ar);
+  /* Arabic script sits lower and needs more leading at the same optical size. */
+  line-height: 1.75;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  margin: 0;
+  color: var(--ink-900);
+  font-weight: 600;
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+}
+
+html[lang='ar'] h1,
+html[lang='ar'] h2,
+html[lang='ar'] h3 {
+  letter-spacing: normal;
+}
+
+p {
+  margin: 0;
+}
+
+ul,
+ol {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  color: inherit;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+}
+
+/* Numeric identifiers stay LTR even inside an RTL paragraph. */
+.ltr-num {
+  direction: ltr;
+  unicode-bidi: isolate;
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--pl-orange);
+  outline-offset: 2px;
+  border-radius: 3px;
+}
+
+/* Visible only to screen readers, and to keyboard users when focused. */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media print {
+  body {
+    background: #fff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

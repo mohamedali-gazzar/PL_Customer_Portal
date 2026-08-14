@@ -1,0 +1,141 @@
+.wrap {
+  overflow-x: auto;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-sm);
+}
+
+.table {
+  min-width: 860px;
+  font-size: var(--text-sm);
+}
+
+.table thead th {
+  padding: var(--s3) var(--s4);
+  background: var(--surface-sunken);
+  border-block-end: 1px solid var(--line);
+  color: var(--ink-500);
+  font-size: var(--text-xs);
+  font-weight: 650;
+  letter-spacing: 0.04em;
+  text-align: start;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+html[lang='ar'] .table thead th {
+  letter-spacing: normal;
+  text-transform: none;
+  font-size: var(--text-sm);
+}
+
+.table tbody tr + tr td,
+.table tbody tr + tr th {
+  border-block-start: 1px solid var(--line);
+}
+
+.table tbody tr:hover td,
+.table tbody tr:hover th {
+  background: var(--surface-sunken);
+}
+
+.table tbody td,
+.table tbody th {
+  padding: var(--s3) var(--s4);
+  text-align: start;
+  vertical-align: middle;
+}
+
+.nameCell {
+  min-width: 240px;
+}
+
+.name {
+  color: var(--ink-900);
+  font-size: var(--text-base);
+  font-weight: 600;
+}
+
+.nameLink:hover .name {
+  color: var(--pl-orange);
+  text-decoration: underline;
+}
+
+.sub {
+  margin-block-start: 1px;
+  color: var(--ink-400);
+  font-size: var(--text-xs);
+}
+
+.progressCell {
+  min-width: 190px;
+}
+
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+.nowrap {
+  white-space: nowrap;
+}
+
+/* On narrow screens the table becomes a stack of cards: a 9-column table cannot be
+   made readable at 375px, and horizontal scrolling for primary navigation is poor. */
+@media (max-width: 760px) {
+  .wrap {
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    overflow: visible;
+  }
+
+  .table,
+  .table thead,
+  .table tbody,
+  .table tr,
+  .table td,
+  .table th {
+    display: block;
+    min-width: 0;
+  }
+
+  .table thead {
+    display: none;
+  }
+
+  .table tbody tr {
+    margin-block-end: var(--s3);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow-sm);
+  }
+
+  .table tbody tr + tr td,
+  .table tbody tr + tr th {
+    border-block-start: none;
+  }
+
+  .table tbody td,
+  .table tbody th {
+    padding: var(--s2) var(--s4);
+  }
+
+  .table tbody td:first-of-type,
+  .table tbody th:first-of-type {
+    padding-block-start: var(--s4);
+  }
+
+  .table tbody tr td:last-child {
+    padding-block-end: var(--s4);
+  }
+
+  /* Each cell labels itself once the header row is gone. */
+  .table tbody td[data-label]::before {
+    content: attr(data-label);
+    display: block;
+    color: var(--ink-400);
+    font-size: var(--text-xs);
+  }
+}
