@@ -9,13 +9,19 @@
  * measures as T1–T8. A customer looking at a six-month bar can see *which* six
  * months, and whose they were.
  *
+ * The track reveals itself on arrival through each band's own CSS entrance, so the
+ * animation can never leave the chart half-drawn. An earlier version swept a
+ * clip-path across it from JavaScript to support a replay control; when that control
+ * was removed the sweep could be interrupted mid-flight and freeze the track at a
+ * few percent revealed. CSS animations always land on their end state.
+ *
  * Planned dates are drawn as markers rather than as a second bar. ERPNext stores
  * planned *end* dates and no planned starts, so a planned bar would have to invent
  * its own left edge — and an invented edge in a delay conversation is worse than
  * no edge. Where the actual run passes its marker, the overshoot is hatched red.
  */
 
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
 import type { PortalItem, PortalOrder } from '@/portal/types'
 import { STATE } from '@/portal/types'
@@ -25,7 +31,6 @@ import { D, days, fd, ICO, Pill } from '../lib/format'
 import { TipHead, TipNote, TipRow, useTip } from '../lib/tooltip'
 
 const DAY = 86_400_000
-const PLAY_MS = 2200
 
 /* ------------------------------------------------------------------ bands -- */
 
@@ -121,13 +126,7 @@ export function Timeline({
   items: readonly PortalItem[]
   today: string
 }) {
-  const clips = useRef<(HTMLDivElement | null)[]>([])
-  const cursors = useRef<(HTMLDivElement | null)[]>([])
-  const dateRef = useRef<HTMLSpanElement | null>(null)
-  const cardRef = useRef<HTMLDivElement | null>(null)
   const plotRef = useRef<HTMLDivElement | null>(null)
-
-  const [playing, setPlaying] = useState(false)
   const [laneWidth, setLaneWidth] = useState(900)
 
   /* -- the time window: every dated thing on the order, plus today ---------- */
@@ -180,57 +179,6 @@ export function Timeline({
 
   const px = useCallback((widthPercent: number) => (laneWidth * widthPercent) / 100, [laneWidth])
 
-  /* -- replay ------------------------------------------------------------- */
-  const stop = useCallback(() => {
-    setPlaying(false)
-    for (const c of clips.current) if (c) c.style.clipPath = ''
-    if (dateRef.current) dateRef.current.textContent = fd(today)
-  }, [today])
-
-  const raf = useRef(0)
-  const play = useCallback(() => {
-    if (!geom) return
-    if (playing) {
-      cancelAnimationFrame(raf.current)
-      stop()
-      return
-    }
-    setPlaying(true)
-    const target = geom.X(today)
-    const t0 = performance.now()
-
-    const tick = (now: number) => {
-      const p = Math.min(1, (now - t0) / PLAY_MS)
-      const f = p * target
-      const hide = (100 - f).toFixed(3)
-      for (const c of clips.current) if (c) c.style.clipPath = `inset(0 ${hide}% 0 0)`
-      for (const c of cursors.current) if (c) c.style.left = `${f}%`
-      if (dateRef.current) {
-        dateRef.current.textContent = fd(geom.at(f).toISOString().slice(0, 10))
-      }
-      if (p < 1) raf.current = requestAnimationFrame(tick)
-      else stop()
-    }
-    raf.current = requestAnimationFrame(tick)
-  }, [geom, playing, stop, today])
-
-  // Play once on arrival: the sweep is what teaches the chart, and a customer who
-  // never hovers anything still learns to read it. Respects reduced motion.
-  useEffect(() => {
-    if (!geom) return
-    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
-    const t = window.setTimeout(() => play(), 260)
-    return () => {
-      window.clearTimeout(t)
-      cancelAnimationFrame(raf.current)
-    }
-    // Intentionally once per project: re-running on every state change would
-    // restart the animation while somebody is reading it.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [order.so, geom !== null])
-
-  useEffect(() => () => cancelAnimationFrame(raf.current), [])
-
   if (!window_ || !geom) {
     return (
       <div className="card">
@@ -257,26 +205,9 @@ export function Timeline({
   const step = Math.max(1, Math.ceil(months.length / Math.max(2, Math.floor(laneWidth / 62))))
   const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-  clips.current = []
-  cursors.current = []
-
   return (
-    <div className={playing ? 'card playing' : 'card'} ref={cardRef}>
+    <div className="card">
       <div className="tl-wrap">
-        <div className="tl-help">
-          <div className="tl-play">
-            <button onClick={play}>
-              <svg viewBox="0 0 12 12">
-                <path d="M2.5 1.4v9.2L10.5 6z" />
-              </svg>
-              <span>{playing ? 'Stop' : 'Replay'}</span>
-            </button>
-            <span className="dt" ref={dateRef}>
-              {fd(today)}
-            </span>
-          </div>
-        </div>
-
         <div className="tl-legend">
           <span className="lg">
             <span className="sw kdot" />
@@ -340,8 +271,6 @@ export function Timeline({
             X={geom.X}
             px={px}
             plotRef={row === 0 ? plotRef : undefined}
-            registerClip={(el) => clips.current.push(el)}
-            registerCursor={(el) => cursors.current.push(el)}
           />
         ))}
 
@@ -360,8 +289,6 @@ function ItemTrack({
   X,
   px,
   plotRef,
-  registerClip,
-  registerCursor,
 }: {
   item: PortalItem
   row: number
@@ -370,8 +297,6 @@ function ItemTrack({
   X: (s: string | null | undefined) => number
   px: (w: number) => number
   plotRef?: React.RefObject<HTMLDivElement | null>
-  registerClip: (el: HTMLDivElement | null) => void
-  registerCursor: (el: HTMLDivElement | null) => void
 }) {
   const bind = useTip()
   const cur = currentStageOf(item)
@@ -458,7 +383,7 @@ function ItemTrack({
       <div className="ti-bars">
         <div className="tl-lanes">
           <div className="tl-plot" ref={plotRef}>
-            <div className="tl-clip" ref={registerClip}>
+            <div className="tl-clip">
               <div className="trk">
                 <div className="trk-base" />
 
@@ -641,7 +566,6 @@ function ItemTrack({
             </div>
 
             <div className="tl-today" style={{ left: `${todayX}%` }} />
-            <div className="tl-cursor" ref={registerCursor} style={{ left: '0%' }} />
           </div>
         </div>
       </div>

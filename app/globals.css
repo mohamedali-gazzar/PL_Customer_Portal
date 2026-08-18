@@ -649,3 +649,11 @@ table.t th.lineno,
 table.t td.lineno{width:1%;white-space:nowrap;padding-inline-end:4px;text-align:right;
   color:var(--muted);font-variant-numeric:tabular-nums}
 table.t td.lineno{font-size:11.5px}
+
+/* ---- the replay sweep is gone ----
+   `.playing` suppressed the bands' own entrance animations while a JS-driven
+   clip-path swept across the track. With no replay control the sweep was removed,
+   so these rules would only ever be able to freeze an animation that nothing
+   restarts. The track now reveals itself through each band's CSS entrance, which
+   cannot be interrupted into a half-drawn state. */
+.tl-cursor{display:none}
