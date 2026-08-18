@@ -14,7 +14,7 @@ import { useMemo } from 'react'
 import type { ScopedSnapshot } from '@/portal/types'
 import { arw, egp, fd, Pill, s } from '../lib/format'
 import { byYear, indexItems, itemsOf, orderYears, sum } from '../lib/select'
-import { byStatus, type StatusFilter } from '../lib/status'
+import { byWoStatus, type WoFilter } from '../lib/wo-status'
 import { Tiles } from '../components/Tiles'
 import { ProjectCard } from '../components/ProjectCard'
 import { ProjectFilters } from '../components/ProjectFilters'
@@ -22,22 +22,22 @@ import { ProjectFilters } from '../components/ProjectFilters'
 export function Dashboard({
   data,
   year,
-  status,
+  wo,
   onYearChange,
-  onStatusChange,
+  onWoChange,
   onOpenProject,
 }: {
   data: ScopedSnapshot
   year: string
-  status: StatusFilter
+  wo: WoFilter
   onYearChange: (year: string) => void
-  onStatusChange: (status: StatusFilter) => void
+  onWoChange: (wo: WoFilter) => void
   onOpenProject: (so: string) => void
 }) {
   const byId = useMemo(() => indexItems(data.items), [data.items])
   const years = useMemo(() => orderYears(data.orders), [data.orders])
   const inYear = useMemo(() => byYear(data.orders, year), [data.orders, year])
-  const orders = useMemo(() => byStatus(inYear, status), [inYear, status])
+  const orders = useMemo(() => byWoStatus(inYear, byId, wo), [inYear, byId, wo])
 
   const contract = sum(orders, (o) => o.contract)
   const backlog = sum(orders, (o) => o.backlog)
@@ -75,13 +75,14 @@ export function Dashboard({
         <div className="sec">Your projects</div>
         <ProjectFilters
           orders={inYear}
+          itemsById={byId}
           years={years}
           year={year}
-          status={status}
+          wo={wo}
           showing={orders.length}
           total={data.orders.length}
           onYearChange={onYearChange}
-          onStatusChange={onStatusChange}
+          onWoChange={onWoChange}
         />
       </div>
 
@@ -93,7 +94,7 @@ export function Dashboard({
               className="linkish"
               onClick={() => {
                 onYearChange('all')
-                onStatusChange('all')
+                onWoChange('all')
               }}
             >
               Clear filters

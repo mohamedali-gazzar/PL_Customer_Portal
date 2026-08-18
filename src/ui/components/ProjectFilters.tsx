@@ -1,43 +1,45 @@
 'use client'
 
 /**
- * The project filters: when it was ordered, and where it stands.
+ * The project filters: when it was ordered, and where its work orders stand.
  *
- * Each status option carries its own count, so the shape of the portfolio is
- * visible before anything is selected — "Past contractual date (62)" answers the
- * question that would otherwise take four clicks to ask.
+ * Each option carries its own count, so the shape of the portfolio is visible
+ * before anything is selected — "No work order yet (48)" answers the question that
+ * would otherwise take four clicks to ask.
  *
  * One row, one total. Two independent tallies would leave the reader working out
  * the intersection themselves; a single "3 of 11 projects" states the result of
  * both, which is the only number that matters.
  */
 
-import { PROJECT_STATUSES, statusCounts, type StatusFilter } from '../lib/status'
+import { WO_STATUSES, woStatusCounts, type WoFilter } from '../lib/wo-status'
 import { s } from '../lib/format'
-import type { PortalOrder } from '@/portal/types'
+import type { PortalItem, PortalOrder } from '@/portal/types'
 
 export function ProjectFilters({
   orders,
+  itemsById,
   years,
   year,
-  status,
+  wo,
   showing,
   total,
   onYearChange,
-  onStatusChange,
+  onWoChange,
 }: {
-  /** Scoped by year but not by status, so the counts do not vanish as you filter. */
+  /** Scoped by year but not by work order, so the counts do not vanish as you filter. */
   orders: readonly PortalOrder[]
+  itemsById: Map<number, PortalItem>
   years: readonly string[]
   year: string
-  status: StatusFilter
+  wo: WoFilter
   showing: number
   total: number
   onYearChange: (year: string) => void
-  onStatusChange: (status: StatusFilter) => void
+  onWoChange: (wo: WoFilter) => void
 }) {
-  const counts = statusCounts(orders)
-  const filtered = year !== 'all' || status !== 'all'
+  const counts = woStatusCounts(orders, itemsById)
+  const filtered = year !== 'all' || wo !== 'all'
 
   return (
     <div className="filters">
@@ -54,14 +56,10 @@ export function ProjectFilters({
       </div>
 
       <div className="filt">
-        <label htmlFor="status-filter">Status</label>
-        <select
-          id="status-filter"
-          value={status}
-          onChange={(e) => onStatusChange(e.target.value as StatusFilter)}
-        >
+        <label htmlFor="wo-filter">Work order</label>
+        <select id="wo-filter" value={wo} onChange={(e) => onWoChange(e.target.value as WoFilter)}>
           <option value="all">Any status</option>
-          {PROJECT_STATUSES.map((st) => (
+          {WO_STATUSES.map((st) => (
             // A status nothing is in is still listed, disabled — its absence is
             // information, and a vanishing option looks like a bug.
             <option key={st.key} value={st.key} disabled={counts[st.key] === 0}>

@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import type { PortalSnapshot, ScopedSnapshot } from '@/portal/types'
 import { scopeToCustomer, type GatewayPayload } from '@/portal/scope'
-import type { StatusFilter } from './lib/status'
+import type { WoFilter } from './lib/wo-status'
 import { TooltipLayer } from './lib/tooltip'
 import { arw, initials, int } from './lib/format'
 import { Gateway } from './Gateway'
@@ -61,7 +61,7 @@ export function PortalApp() {
   const [so, setSo] = useState<string | null>(null)
   /** Project filters. Both default to everything. */
   const [year, setYear] = useState<string>('all')
-  const [status, setStatus] = useState<StatusFilter>('all')
+  const [wo, setWo] = useState<WoFilter>('all')
 
   const [gateway, setGateway] = useState<GatewayPayload | null>(null)
   const [gatewayError, setGatewayError] = useState<string | null>(null)
@@ -157,7 +157,7 @@ export function PortalApp() {
       setView('dash')
       setSo(null)
       setYear('all')
-      setStatus('all')
+      setWo('all')
       window.scrollTo({ top: 0 })
     },
     [portfolio],
@@ -250,9 +250,9 @@ export function PortalApp() {
               <Dashboard
                 data={scoped}
                 year={year}
-                status={status}
+                wo={wo}
                 onYearChange={setYear}
-                onStatusChange={setStatus}
+                onWoChange={setWo}
                 onOpenProject={(id) => {
                   setSo(id)
                   setView('proj')
@@ -266,9 +266,9 @@ export function PortalApp() {
                 data={scoped}
                 so={so}
                 year={year}
-                status={status}
+                wo={wo}
                 onYearChange={setYear}
-                onStatusChange={setStatus}
+                onWoChange={setWo}
                 onOpenProject={setSo}
               />
             </section>

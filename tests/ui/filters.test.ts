@@ -10,9 +10,11 @@
 import { test } from 'node:test'
 import assert from 'node:assert/strict'
 
-import { byYear, orderYears } from '@/ui/lib/select'
-import { PROJECT_STATUSES, byStatus, projectStatus, statusCounts } from '@/ui/lib/status'
-import type { PortalOrder } from '@/portal/types'
+import { byYear, indexItems, orderYears } from '@/ui/lib/select'
+import { PROJECT_STATUSES, projectStatus } from '@/ui/lib/status'
+import { WO_STATUSES, byWoStatus, woStatusCounts, woStatusOf } from '@/ui/lib/wo-status'
+import type { PortalItem, PortalOrder, Stage } from '@/portal/types'
+import { STATE } from '@/portal/types'
 
 interface Flags {
   hold?: number
@@ -70,9 +72,10 @@ test('a year selects only that year, and excludes undated orders', () => {
   assert.equal(byYear(orders, 'all').length, 7, 'all keeps the undated order too')
 })
 
-/* ------------------------------------------------------------------ status -- */
+/* ------------------------------------------------------- the badge on a card -- */
 
-test('a project has exactly one status, resolved by priority', () => {
+test('a project badge shows exactly one status, resolved by priority', () => {
+  // The conditions overlap: an order can be late and awaiting approval at once.
   assert.equal(projectStatus(orders[0]!).key, 'ontrack')
   assert.equal(projectStatus(orders[1]!).key, 'late')
   assert.equal(projectStatus(orders[2]!).key, 'action')
@@ -81,54 +84,103 @@ test('a project has exactly one status, resolved by priority', () => {
   assert.equal(projectStatus(orders[5]!).key, 'hold', 'a hold outranks how late it is')
 })
 
-test('the statuses partition every project exactly once', () => {
-  // Filtering on overlapping flags instead would show an order under two statuses,
-  // and the counts beside the options would then exceed the total.
-  const counted = PROJECT_STATUSES.flatMap((st) => byStatus(orders, st.key).map((o) => o.so))
-  assert.equal(counted.length, orders.length, 'no project is dropped or double-counted')
-  assert.equal(new Set(counted).size, orders.length)
+test('every project resolves to one of the declared statuses', () => {
+  const keys = new Set(PROJECT_STATUSES.map((s) => s.key))
+  for (const o of orders) assert.ok(keys.has(projectStatus(o).key))
 })
 
-test('the counts beside the options sum to the list they describe', () => {
-  const counts = statusCounts(orders)
-  assert.equal(Object.values(counts).reduce((a, b) => a + b, 0), orders.length)
-  assert.deepEqual(counts, { hold: 2, late: 3, action: 1, ontrack: 1 })
-})
+/* -------------------------------------------------- work order status filter -- */
 
-test('filtering by a status returns exactly the projects whose badge says so', () => {
-  for (const st of PROJECT_STATUSES) {
-    for (const o of byStatus(orders, st.key)) {
-      assert.equal(
-        projectStatus(o).key,
-        st.key,
-        `${o.so} was returned under "${st.label}" but its badge says "${projectStatus(o).label}"`,
-      )
-    }
+const stage = (): Stage => [STATE.none, 'x', null, null, null]
+
+function item(id: number, wo: string | null, woStatus: string | null): PortalItem {
+  return {
+    id, so: 'SO', proj: 'P', cust: 'C', pm: null, grp: null, code: `C${id}`, name: null,
+    hold: 0, qty: 1, deliv: 0, remain: 1, rate: 0, contract: 0, backlog: 0, dvalue: 0,
+    soDate: '2026-01-01', cDate: null, cPeriod: null,
+    ...(wo ? { wo, woQty: 1, prodQty: 0, woStatus, matStatus: null } : {}),
+    rework: 0, ch: ['2026-01-01'], nIA: 0, nRev: 0, nRel: 0,
+    T: [null, null, null, null, null, null, null, null],
+    age: null, dtc: null, late: 0, pct: 0,
+    st: [stage(), stage(), stage(), stage(), stage(), stage(), stage()],
+    nextStage: 'x', nextStatus: 'x',
   }
+}
+
+const lines = [
+  item(0, 'WO-1', 'Completed'),
+  item(1, 'WO-2', 'In Process'),
+  item(2, 'WO-3', 'Not Started'),
+  item(3, null, null),
+  item(4, 'WO-5', 'Closed'),
+  item(5, 'WO-6', 'Completed, Not Started'),
+  item(6, 'WO-7', 'In Process, Not Started'),
+]
+const byId = indexItems(lines)
+
+const withLines = (so: string, ids: number[]): PortalOrder => ({
+  ...order(so, '2026-01-01'),
+  items: ids,
 })
 
-test('"all" keeps everything', () => {
-  assert.equal(byStatus(orders, 'all').length, orders.length)
+test('the seven raw ERP values collapse to four buckets', () => {
+  // Offering "Completed, Not Started" verbatim would put an option in the list
+  // matching one row, and mean nothing to a customer.
+  assert.equal(woStatusOf(lines[0]!), 'completed')
+  assert.equal(woStatusOf(lines[1]!), 'inprocess')
+  assert.equal(woStatusOf(lines[2]!), 'notstarted')
+  assert.equal(woStatusOf(lines[3]!), 'nowo', 'no work order is a state, not a gap')
+  assert.equal(woStatusOf(lines[4]!), 'completed', 'Closed counts as a completion')
+  assert.equal(woStatusOf(lines[5]!), 'completed', 'the most advanced status in the string wins')
+  assert.equal(woStatusOf(lines[6]!), 'inprocess')
+})
+
+test('every line resolves to one of the declared buckets', () => {
+  const keys = new Set(WO_STATUSES.map((s) => s.key))
+  for (const l of lines) assert.ok(keys.has(woStatusOf(l)), `${l.code} fell outside the buckets`)
+})
+
+test('a project matches if any of its panels is at that status', () => {
+  // 38 of the 157 real orders span more than one work-order status. Requiring all
+  // of them to match would silently hide an order that is partly in the state
+  // being asked about.
+  const mixed = withLines('MIXED', [0, 2])
+  const built = withLines('BUILT', [0, 4])
+  const list = [mixed, built]
+
+  assert.deepEqual(byWoStatus(list, byId, 'completed').map((o) => o.so), ['MIXED', 'BUILT'])
+  assert.deepEqual(byWoStatus(list, byId, 'notstarted').map((o) => o.so), ['MIXED'])
+  assert.deepEqual(byWoStatus(list, byId, 'inprocess').map((o) => o.so), [])
+  assert.deepEqual(byWoStatus(list, byId, 'all').map((o) => o.so), ['MIXED', 'BUILT'])
+})
+
+test('an order is counted once per status, however many panels are in it', () => {
+  const many = withLines('MANY', [0, 4, 5, 2])
+  const counts = woStatusCounts([many], byId)
+  assert.equal(counts.completed, 1, 'three completed panels are still one project')
+  assert.equal(counts.notstarted, 1)
+  assert.equal(counts.inprocess, 0)
+})
+
+test('a project whose lines are missing from the index is not matched', () => {
+  const dangling = withLines('DANGLING', [999])
+  assert.deepEqual(byWoStatus([dangling], byId, 'completed'), [])
 })
 
 /* ------------------------------------------------------------- composition -- */
 
 test('the two filters compose, narrowing rather than replacing', () => {
-  const both = byStatus(byYear(orders, '2024'), 'hold')
-  assert.deepEqual(both.map((o) => o.so), ['HELD', 'HELD_AND_LATE'])
+  const a = { ...withLines('A', [0]), soDate: '2026-01-01' }
+  const b = { ...withLines('B', [2]), soDate: '2025-01-01' }
+  const list = [a, b]
 
-  const empty = byStatus(byYear(orders, '2026'), 'hold')
-  assert.deepEqual(empty, [], 'an empty intersection is empty, not unfiltered')
-})
-
-test('status counts follow the chosen year, so the options describe what is shown', () => {
-  const in2024 = byYear(orders, '2024')
-  assert.deepEqual(statusCounts(in2024), { hold: 2, late: 0, action: 0, ontrack: 0 })
+  assert.deepEqual(byWoStatus(byYear(list, '2026'), byId, 'completed').map((o) => o.so), ['A'])
+  assert.deepEqual(byWoStatus(byYear(list, '2026'), byId, 'notstarted'), [], 'an empty intersection is empty')
 })
 
 test('filtering never mutates the source list', () => {
   const before = orders.map((o) => o.so)
   byYear(orders, '2025')
-  byStatus(orders, 'late')
+  byWoStatus(orders, byId, 'completed')
   assert.deepEqual(orders.map((o) => o.so), before)
 })

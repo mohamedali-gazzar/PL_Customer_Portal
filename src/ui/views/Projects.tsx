@@ -13,7 +13,7 @@ import { STATE } from '@/portal/types'
 import { STAGE_NAMES } from '@/portal/constants'
 import { arw, egp, fd, full, int, Pill, s } from '../lib/format'
 import { byYear, indexItems, itemsOf, orderYears } from '../lib/select'
-import { byStatus, type StatusFilter } from '../lib/status'
+import { byWoStatus, type WoFilter } from '../lib/wo-status'
 import { ProjectFilters } from '../components/ProjectFilters'
 import { Tiles } from '../components/Tiles'
 import { ProjectCard } from '../components/ProjectCard'
@@ -23,23 +23,23 @@ export function Projects({
   data,
   so,
   year,
-  status,
+  wo,
   onYearChange,
-  onStatusChange,
+  onWoChange,
   onOpenProject,
 }: {
   data: ScopedSnapshot
   so: string | null
   year: string
-  status: StatusFilter
+  wo: WoFilter
   onYearChange: (year: string) => void
-  onStatusChange: (status: StatusFilter) => void
+  onWoChange: (wo: WoFilter) => void
   onOpenProject: (so: string | null) => void
 }) {
   const byId = useMemo(() => indexItems(data.items), [data.items])
   const years = useMemo(() => orderYears(data.orders), [data.orders])
   const inYear = useMemo(() => byYear(data.orders, year), [data.orders, year])
-  const shown = useMemo(() => byStatus(inYear, status), [inYear, status])
+  const shown = useMemo(() => byWoStatus(inYear, byId, wo), [inYear, byId, wo])
   const order = so ? data.orders.find((o) => o.so === so) ?? null : null
 
   if (order) {
@@ -106,13 +106,14 @@ export function Projects({
         </div>
         <ProjectFilters
           orders={inYear}
+          itemsById={byId}
           years={years}
           year={year}
-          status={status}
+          wo={wo}
           showing={shown.length}
           total={data.orders.length}
           onYearChange={onYearChange}
-          onStatusChange={onStatusChange}
+          onWoChange={onWoChange}
         />
       </div>
 
@@ -124,7 +125,7 @@ export function Projects({
               className="linkish"
               onClick={() => {
                 onYearChange('all')
-                onStatusChange('all')
+                onWoChange('all')
               }}
             >
               Clear filters
