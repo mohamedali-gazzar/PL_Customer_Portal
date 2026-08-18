@@ -67,28 +67,15 @@ export function Projects({
 
         <Tiles
           tiles={[
-            { lab: 'Contract value', val: egp(order.contract), sub: `${order.qty} panels ordered` },
             {
-              lab: 'Delivered',
-              val: egp(order.dvalue),
-              cls: order.dvalue > 0 ? 'good' : '',
-              sub: `${order.deliv} of ${order.qty} panels`,
+              lab: 'Total contract value',
+              val: egp(order.contract),
+              sub: `${order.qty} panel${s(order.qty)} ordered`,
             },
             {
-              lab: 'Open backlog',
+              lab: 'Total open backlog',
               val: egp(order.backlog),
-              sub: `${order.qty - order.deliv} panels remaining`,
-            },
-            {
-              lab: 'Order age',
-              val: order.age !== null ? String(order.age) : '—',
-              sub: 'days since sales order',
-            },
-            {
-              lab: 'To contractual date',
-              val: order.dtc !== null ? (order.dtc < 0 ? String(order.dtc) : `+${order.dtc}`) : '—',
-              cls: order.dtc !== null && order.dtc < 0 ? 'crit' : '',
-              sub: order.dtc !== null ? (order.dtc < 0 ? 'days overdue' : 'days remaining') : 'no date set',
+              sub: `${order.qty - order.deliv} panel${s(order.qty - order.deliv)} remaining`,
             },
           ]}
         />
@@ -146,6 +133,7 @@ function ItemTable({ items }: { items: readonly PortalItem[] }) {
       <table className="t">
         <thead>
           <tr>
+            <th className="lineno">#</th>
             <th>Item</th>
             <th>Description</th>
             <th className="r">Qty</th>
@@ -158,7 +146,7 @@ function ItemTable({ items }: { items: readonly PortalItem[] }) {
           </tr>
         </thead>
         <tbody>
-          {items.map((it) => {
+          {items.map((it, line) => {
             const found = it.st.findIndex((x) => x[0] === STATE.none || x[0] === STATE.active)
             const cur = found < 0 ? 6 : found
             const materialKind =
@@ -171,6 +159,7 @@ function ItemTable({ items }: { items: readonly PortalItem[] }) {
                     : 'gap'
             return (
               <tr key={it.id}>
+                <td className="lineno num">{line + 1}</td>
                 <td>
                   <b>{it.code}</b>
                   {it.hold ? (

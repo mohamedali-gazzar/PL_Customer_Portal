@@ -9,6 +9,11 @@
  * It is the regression net for the whole product. If a rule changes here, a
  * customer somewhere sees a different status — and this test says so by name.
  *
+ * The pairing is pinned. The oracle was produced from the 480-line export of
+ * 11 August 2026, so the test reads *that* export — `data/oracle-export.xlsx` —
+ * and not whatever the current one happens to be. The data moves on weekly; the
+ * proof that these rules reproduce the approved design must not move with it.
+ *
  * Both inputs are real customer data and live in gitignored data/. When either is
  * absent the test skips loudly rather than passing vacuously:
  *
@@ -23,7 +28,7 @@ import { parseBacklogWorkbook } from '@/providers/excel/parse'
 import { deriveSnapshot } from '@/portal/derive'
 import type { PortalItem, PortalOrder, PortalSnapshot } from '@/portal/types'
 
-const EXPORT_PATH = process.env.EXCEL_BACKLOG_PATH ?? 'data/backlog.xlsx'
+const EXPORT_PATH = process.env.ORACLE_EXPORT_PATH ?? 'data/oracle-export.xlsx'
 const ORACLE_PATH = 'data/prototype-oracle.json'
 
 const ready = existsSync(EXPORT_PATH) && existsSync(ORACLE_PATH)
@@ -203,7 +208,7 @@ test('derivation reproduces the approved prototype', { skip: ready ? false : ski
 
 function skipReason(): string {
   const missing = [
-    existsSync(EXPORT_PATH) ? null : `the export (${EXPORT_PATH})`,
+    existsSync(EXPORT_PATH) ? null : `the export the oracle was built from (${EXPORT_PATH})`,
     existsSync(ORACLE_PATH) ? null : `the prototype oracle (${ORACLE_PATH}) — run scripts/extract-prototype-oracle.mjs`,
   ].filter(Boolean)
   return `Skipped: missing ${missing.join(' and ')}. Both are real customer data and are gitignored.`

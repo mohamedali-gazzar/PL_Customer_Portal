@@ -639,3 +639,13 @@ nav.main button.soon:hover{background:none;color:#BDBDBE}
   .journey{grid-template-columns:repeat(2,1fr);gap:5px}
   .jst{padding:8px 9px 9px}
 }
+
+/* ---- line numbers on an item table ----
+   A sales order numbers its lines, so the portal numbers them the same way: it is
+   how a customer refers to a row on the phone ("line 4"), and it gives the eye a
+   fixed left edge to track along a wide, scrolling table. Tabular figures keep the
+   column from shifting between 9 and 10. */
+table.t th.lineno,
+table.t td.lineno{width:1%;white-space:nowrap;padding-inline-end:4px;text-align:right;
+  color:var(--muted);font-variant-numeric:tabular-nums}
+table.t td.lineno{font-size:11.5px}
