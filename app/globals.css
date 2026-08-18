@@ -315,7 +315,7 @@ table.t td.r,table.t th.r{text-align:right}
   transform-origin:left;animation:growW .7s cubic-bezier(.2,.7,.3,1)}
 
 /* the 7-stage process strip — the whole journey, in words and dates */
-.journey{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;margin:13px 0 15px}
+.journey{display:grid;grid-template-columns:repeat(9,1fr);gap:5px;margin:13px 0 15px}
 .jst{position:relative;border:1px solid var(--border);border-radius:9px;padding:9px 10px 10px;
   background:var(--surface);min-width:0;transition:box-shadow .16s,transform .16s}
 .jst:hover{box-shadow:var(--shadow);transform:translateY(-1px)}
@@ -346,7 +346,8 @@ table.t td.r,table.t th.r{text-align:right}
 .jst.act{border-color:#F6C9AF;box-shadow:0 0 0 2px rgba(241,103,34,.10)}
 
 .ti-bars{display:flex;align-items:stretch}
-@media(max-width:1180px){.journey{grid-template-columns:repeat(4,1fr)}}
+@media(max-width:1440px){.journey{grid-template-columns:repeat(5,1fr)}}
+@media(max-width:1180px){.journey{grid-template-columns:repeat(3,1fr)}}
 @media(max-width:860px){.journey{grid-template-columns:repeat(2,1fr);gap:5px}
   .jname{font-size:10px}.jstat{font-size:10.5px}.jdt{font-size:10px}}
 
@@ -590,4 +591,51 @@ table.t td.r,table.t th.r{text-align:right}
   .scrollx table.t{min-width:640px}
   .fn .lb{font-size:8px;height:38px}
   .chart,.tl-wrap{padding-left:13px;padding-right:13px}
+}
+
+
+/* ==================================================== PORTAL ADDITIONS ==== */
+
+/* ---- a section heading with a control on the same line ---- */
+.sec-row{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.sec-row .sec{margin-bottom:12px}
+
+/* ---- year filter ----
+   Label stays visible once a year is chosen, so the control keeps saying what it
+   filters rather than becoming an unexplained number. */
+.yearfilter{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex:none}
+.yearfilter label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+  color:var(--muted);font-weight:650;white-space:nowrap}
+.yearfilter select{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+  padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;
+  min-width:132px;transition:border-color .16s,box-shadow .16s}
+.yearfilter select:hover{border-color:#CFCFD0}
+.yearfilter select:focus-visible{outline:none;border-color:var(--brand);
+  box-shadow:0 0 0 3px rgba(241,103,34,.16)}
+.yf-count{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
+
+/* ---- a button that reads as a link, for inline recovery actions ---- */
+.linkish{color:var(--brand-ink);font-weight:650;text-decoration:underline;
+  text-underline-offset:2px;border-radius:4px}
+.linkish:hover{color:var(--brand)}
+.linkish:focus-visible{outline:2px solid var(--brand);outline-offset:2px}
+
+/* ---- nav item for a screen that exists but has no ERP feed yet ----
+   Present, labelled and inert: hiding it would leave a customer wondering whether
+   they are missing a permission. Opacity plus the tag plus not-allowed together
+   mean it never reads as merely unselected. */
+nav.main button.soon{display:inline-flex;align-items:center;gap:7px;opacity:.42;
+  cursor:not-allowed;color:#BDBDBE}
+nav.main button.soon:hover{background:none;color:#BDBDBE}
+.soon-tag{font-size:8.5px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;
+  color:#DCDCDD;background:rgba(255,255,255,.13);border-radius:100px;padding:2px 6px;
+  line-height:1.3}
+@media(max-width:860px){.soon-tag{display:none}}
+
+/* ---- the journey ladder now carries nine levels ---- */
+.jst .jname{white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+.journey .jdt{font-size:10px}
+@media(max-width:860px){
+  .journey{grid-template-columns:repeat(2,1fr);gap:5px}
+  .jst{padding:8px 9px 9px}
 }

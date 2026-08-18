@@ -39,17 +39,6 @@ export const STAGE_SHORT = [
  */
 export const STAGE_GAP = [false, false, false, false, true, false, true] as const
 
-/** What each milestone means, in the customer's words rather than the ERP's. */
-export const STAGE_WHAT = [
-  'We prepare the panel drawings and send them to you. Nothing is built until you approve them.',
-  'We gather every component for your panel. Manufacturing starts only once material is available.',
-  'Your panel is assembled, wired and tested on our production line.',
-  'Factory Acceptance Test. Any final quality adjustments happen here before the panel is signed off.',
-  'The payment instalment that falls due before your panel leaves our factory.',
-  'The panel is finished, packed and ready to leave — then dispatched to your site.',
-  'Final invoicing and settlement for this panel.',
-] as const
-
 /**
  * The eight phases the business already measures (T1–T8), each one the gap
  * between two consecutive timestamps in `PortalItem.ch`.

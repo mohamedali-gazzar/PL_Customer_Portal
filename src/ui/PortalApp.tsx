@@ -25,14 +25,27 @@ import { Console } from './views/Console'
 export type Mode = 'customer' | 'internal'
 export type ViewKey = 'dash' | 'proj' | 'fin' | 'docs' | 'int'
 
-const NAVS: Record<Mode, [ViewKey, string][]> = {
+interface NavItem {
+  readonly key: ViewKey
+  readonly label: string
+  /**
+   * Built, but not yet fed by the ERP.
+   *
+   * Shown rather than hidden: a customer who has been told the portal covers their
+   * financial position should be able to see that it is coming, not wonder whether
+   * they are missing a permission. Disabled, labelled, and not clickable.
+   */
+  readonly soon?: boolean
+}
+
+const NAVS: Record<Mode, readonly NavItem[]> = {
   customer: [
-    ['dash', 'Dashboard'],
-    ['proj', 'Projects'],
-    ['fin', 'Finance'],
-    ['docs', 'Documents'],
+    { key: 'dash', label: 'Dashboard' },
+    { key: 'proj', label: 'Projects' },
+    { key: 'fin', label: 'Finance', soon: true },
+    { key: 'docs', label: 'Documents', soon: true },
   ],
-  internal: [['int', 'PM Console']],
+  internal: [{ key: 'int', label: 'PM Console' }],
 }
 
 type Phase = 'gateway' | 'boot' | 'app'
@@ -45,6 +58,8 @@ export function PortalApp() {
   const [mode, setMode] = useState<Mode>('customer')
   const [view, setView] = useState<ViewKey>('dash')
   const [so, setSo] = useState<string | null>(null)
+  /** Order-year filter. 'all' spans every project, which is the default. */
+  const [year, setYear] = useState<string>('all')
 
   const [gateway, setGateway] = useState<GatewayPayload | null>(null)
   const [gatewayError, setGatewayError] = useState<string | null>(null)
@@ -139,6 +154,7 @@ export function PortalApp() {
       setMode('customer')
       setView('dash')
       setSo(null)
+      setYear('all')
       window.scrollTo({ top: 0 })
     },
     [portfolio],
@@ -185,11 +201,28 @@ export function PortalApp() {
             </div>
 
             <nav className="main">
-              {NAVS[mode].map(([k, label]) => (
-                <button key={k} className={view === k ? 'on' : undefined} onClick={() => go(k)}>
-                  {label}
-                </button>
-              ))}
+              {NAVS[mode].map((item) =>
+                item.soon ? (
+                  <button
+                    key={item.key}
+                    className="soon"
+                    disabled
+                    aria-disabled="true"
+                    title={`${item.label} — coming soon`}
+                  >
+                    {item.label}
+                    <span className="soon-tag">Soon</span>
+                  </button>
+                ) : (
+                  <button
+                    key={item.key}
+                    className={view === item.key ? 'on' : undefined}
+                    onClick={() => go(item.key)}
+                  >
+                    {item.label}
+                  </button>
+                ),
+              )}
             </nav>
 
             <div className="who">
@@ -211,12 +244,20 @@ export function PortalApp() {
         <main>
           {phase === 'app' && scoped && view === 'dash' && (
             <section className="view on">
-              <Dashboard data={scoped} onOpenProject={(id) => { setSo(id); setView('proj') }} />
+              <Dashboard
+                data={scoped}
+                year={year}
+                onYearChange={setYear}
+                onOpenProject={(id) => {
+                  setSo(id)
+                  setView('proj')
+                }}
+              />
             </section>
           )}
           {phase === 'app' && scoped && view === 'proj' && (
             <section className="view on">
-              <Projects data={scoped} so={so} onOpenProject={setSo} />
+              <Projects data={scoped} so={so} year={year} onYearChange={setYear} onOpenProject={setSo} />
             </section>
           )}
           {phase === 'app' && scoped && view === 'fin' && (

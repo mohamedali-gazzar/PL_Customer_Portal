@@ -12,7 +12,8 @@ import type { PortalItem, ScopedSnapshot } from '@/portal/types'
 import { STATE } from '@/portal/types'
 import { STAGE_NAMES } from '@/portal/constants'
 import { arw, egp, fd, full, int, Pill, s } from '../lib/format'
-import { indexItems, itemsOf } from '../lib/select'
+import { byYear, indexItems, itemsOf, orderYears } from '../lib/select'
+import { YearFilter } from '../components/YearFilter'
 import { Tiles } from '../components/Tiles'
 import { ProjectCard } from '../components/ProjectCard'
 import { Timeline } from '../components/Timeline'
@@ -20,13 +21,19 @@ import { Timeline } from '../components/Timeline'
 export function Projects({
   data,
   so,
+  year,
+  onYearChange,
   onOpenProject,
 }: {
   data: ScopedSnapshot
   so: string | null
+  year: string
+  onYearChange: (year: string) => void
   onOpenProject: (so: string | null) => void
 }) {
   const byId = useMemo(() => indexItems(data.items), [data.items])
+  const years = useMemo(() => orderYears(data.orders), [data.orders])
+  const shown = useMemo(() => byYear(data.orders, year), [data.orders, year])
   const order = so ? data.orders.find((o) => o.so === so) ?? null : null
 
   if (order) {
@@ -86,11 +93,11 @@ export function Projects({
           ]}
         />
 
-        <div className="sec">Item milestone timeline</div>
-        <Timeline order={order} items={items} today={data.meta.exportDate} />
-
         <div className="sec">Item detail</div>
         <ItemTable items={items} />
+
+        <div className="sec">Item milestone timeline</div>
+        <Timeline order={order} items={items} today={data.meta.exportDate} />
       </>
     )
   }
@@ -101,16 +108,34 @@ export function Projects({
         <div>
           <h1 className="pt">Projects</h1>
           <p className="psub">
-            {data.orders.length} sales order{s(data.orders.length)} · click any project for the
-            item-level milestone timeline
+            {data.orders.length} sales order{s(data.orders.length)}
           </p>
         </div>
+        <YearFilter
+          years={years}
+          value={year}
+          showing={shown.length}
+          total={data.orders.length}
+          onChange={onYearChange}
+        />
       </div>
-      <div className="grid2">
-        {data.orders.map((o, i) => (
-          <ProjectCard key={o.so} order={o} items={itemsOf(o, byId)} index={i} onOpen={onOpenProject} />
-        ))}
-      </div>
+
+      {shown.length === 0 ? (
+        <div className="card">
+          <div className="empty">
+            No projects were ordered in {year}.{' '}
+            <button className="linkish" onClick={() => onYearChange('all')}>
+              Show all projects
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="grid2">
+          {shown.map((o, i) => (
+            <ProjectCard key={o.so} order={o} items={itemsOf(o, byId)} index={i} onOpen={onOpenProject} />
+          ))}
+        </div>
+      )}
     </>
   )
 }

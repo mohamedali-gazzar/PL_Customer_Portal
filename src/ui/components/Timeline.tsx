@@ -19,7 +19,8 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } fr
 
 import type { PortalItem, PortalOrder } from '@/portal/types'
 import { STATE } from '@/portal/types'
-import { PHASES, PHASE_HEX, STAGE_HEX, STAGE_NAMES, STAGE_SHORT, STAGE_WHAT } from '@/portal/constants'
+import { PHASES, PHASE_HEX, STAGE_HEX, STAGE_NAMES, STAGE_SHORT } from '@/portal/constants'
+import { journeyOf, JOURNEY_HEX } from '@/portal/journey'
 import { D, days, fd, ICO, Pill } from '../lib/format'
 import { TipHead, TipNote, TipRow, useTip } from '../lib/tooltip'
 
@@ -263,27 +264,6 @@ export function Timeline({
     <div className={playing ? 'card playing' : 'card'} ref={cardRef}>
       <div className="tl-wrap">
         <div className="tl-help">
-          <div className="txt">
-            <b>How to read this.</b> One unbroken track per panel from the day you ordered to today
-            — every day is on it, and every block is named. The eight blocks are the phases
-            Powerline measures (T1–T8): preparing the drawings, the time the drawing sits with you,
-            releasing to production, gathering material, manufacturing, and the quality steps. The
-            number in each block is how many days it took. A{' '}
-            <span className="k">
-              <span className="kb kcaret" />
-              caret
-            </span>{' '}
-            below the track marks the date the plan called for — run past it and the overshoot turns{' '}
-            <span className="k">
-              <span className="kb hatch-key" />
-              striped red
-            </span>
-            .{' '}
-            <span className="k">
-              <span className="kb kdia" />
-            </span>{' '}
-            is your contractual delivery date; the dashed line is today.
-          </div>
           <div className="tl-play">
             <button onClick={play}>
               <svg viewBox="0 0 12 12">
@@ -365,25 +345,6 @@ export function Timeline({
           />
         ))}
 
-        <div className="note gapn" style={{ margin: '14px 0 16px' }}>
-          <b>Where these phases come from.</b> The eight blocks are exactly the T1–T8 phases in the
-          PM Phase Cycle Times report, drawn from nine ERPNext timestamps: sales order submitted →
-          first drawing submitted → release RFD created → release RFD submitted → material ready →
-          work order closed → rework raised → rework material ready → rework closed. Each block&apos;s
-          day count reproduces the report&apos;s own T column exactly. Where one timestamp is missing,
-          the phases either side are shown merged rather than estimated.
-          <br />
-          <br />
-          <b>About the target markers.</b> ERPNext stores planned <i>end</i> dates, not planned
-          windows, so the plan is drawn as markers rather than a second bar — nothing here is
-          inferred. Only three target dates exist today:{' '}
-          <span className="mono">material_delivery_date</span>,{' '}
-          <span className="mono">planned_end_date</span> and the contractual date. Drawings approval,
-          FAT and the two financial stages have no planned-date field at all — that is gap 8.1 in
-          the brief. Add <span className="mono">custom_planned_fat_date</span> and{' '}
-          <span className="mono">custom_planned_delivery_date</span> on Work Order and their carets
-          appear automatically.
-        </div>
       </div>
     </div>
   )
@@ -452,37 +413,46 @@ function ItemTrack({
         </div>
       </div>
 
-      {/* the seven milestones, in words and dates */}
+      {/* the journey, in the order a customer experiences it */}
       <div className="journey">
-        {item.st.map((stage, si) => {
-          const info = stageInfo(item, si, cur, today)
-          return (
-            <div
-              key={si}
-              className={`jst ${info.state}`}
-              style={{ ['--jc' as string]: STAGE_HEX[si] }}
-              {...bind(
-                <>
-                  <TipHead swatch={STAGE_HEX[si]}>{`${si + 1}. ${STAGE_NAMES[si]}`}</TipHead>
-                  <TipRow label="Status" value={info.status} />
-                  <TipNote>{STAGE_WHAT[si]}</TipNote>
-                </>,
-              )}
-            >
-              <div className="jh">
-                <span className="jnum">{si + 1}</span>
-                <span className="jname">{STAGE_SHORT[si]}</span>
-              </div>
-              <div className="jstat">{info.status}</div>
-              {info.rows.map((r, i) => (
-                <div className={`jdt${r.tone ? ` ${r.tone}` : ''}`} key={i}>
-                  <span>{r.k}</span>
-                  <b>{r.v}</b>
-                </div>
-              ))}
+        {journeyOf(item, today).map((lvl) => (
+          <div
+            key={lvl.n}
+            className={`jst ${lvl.state === 'done' ? 'done' : lvl.state === 'active' ? 'act' : 'pend'}`}
+            style={{ ['--jc' as string]: JOURNEY_HEX[lvl.n] }}
+            {...bind(
+              <>
+                <TipHead swatch={JOURNEY_HEX[lvl.n]}>{`${lvl.n + 1}. ${lvl.label}`}</TipHead>
+                <TipRow label="Status" value={lvl.status} />
+                {lvl.from ? <TipRow label="Started" value={fd(lvl.from)} /> : null}
+                {lvl.to ? <TipRow label="Finished" value={fd(lvl.to)} /> : null}
+                {lvl.days !== null ? (
+                  <TipRow label={lvl.state === 'active' ? 'Running' : 'Took'} value={`${lvl.days} days`} />
+                ) : null}
+                {lvl.planned ? <TipRow label="Planned by" value={fd(lvl.planned)} /> : null}
+                <TipNote>{lvl.what}</TipNote>
+              </>,
+            )}
+          >
+            <div className="jh">
+              <span className="jnum">{lvl.n + 1}</span>
+              <span className="jname">{lvl.label}</span>
             </div>
-          )
-        })}
+            <div className="jstat">{lvl.status}</div>
+            {lvl.from ? (
+              <div className="jdt">
+                <span>{lvl.state === 'done' && lvl.to ? 'Done' : 'From'}</span>
+                <b>{fd(lvl.state === 'done' && lvl.to ? lvl.to : lvl.from)}</b>
+              </div>
+            ) : null}
+            {lvl.days !== null ? (
+              <div className="jdt">
+                <span>{lvl.state === 'active' ? 'Running' : 'Took'}</span>
+                <b>{lvl.days}d</b>
+              </div>
+            ) : null}
+          </div>
+        ))}
       </div>
 
       <div className="ti-bars">
@@ -822,55 +792,4 @@ function BelowMarkers({
       })}
     </>
   )
-}
-
-/* ------------------------------------------------------------ stage cards -- */
-
-interface StageInfo {
-  state: 'done' | 'act' | 'pend' | 'gapst'
-  status: string
-  rows: { k: string; v: string; tone?: 'late' | 'early' }[]
-}
-
-/**
- * A stage, in the dates a customer actually wants.
- *
- * A stage that has not begun has no real start: the value ERPNext holds there is
- * the earliest it *could* begin. Presenting that as a start would claim work had
- * started, so nothing is shown for a stage that has not.
- */
-export function stageInfo(item: PortalItem, si: number, cur: number, today: string): StageInfo {
-  const s = item.st[si]!
-  const state: StageInfo['state'] =
-    s[0] === STATE.gap ? 'gapst' : si < cur ? 'done' : si === cur ? 'act' : 'pend'
-  const rows: StageInfo['rows'] = []
-
-  if (state === 'gapst') {
-    return { state, status: 'Awaiting ERP feed', rows: [{ k: 'Source', v: 'not in export' }] }
-  }
-
-  const begun = state === 'done' || state === 'act'
-  if (begun) {
-    if (s[2]) rows.push({ k: 'Started', v: fd(s[2]) })
-    if (s[3]) rows.push({ k: 'Finished', v: fd(s[3]) })
-    else if (s[2]) rows.push({ k: 'Running', v: `${days(s[2], today)} days` })
-  }
-  if (s[4]) rows.push({ k: 'Planned by', v: fd(s[4]) })
-  if (begun && s[3] && s[4]) {
-    const v = days(s[4], s[3])
-    if (v !== 0) rows.push({ k: v > 0 ? 'Late by' : 'Early by', v: `${Math.abs(v)} days`, tone: v > 0 ? 'late' : 'early' })
-  } else if (begun && !s[3] && s[4]) {
-    const v = days(s[4], today)
-    if (v > 0) rows.push({ k: 'Past plan', v: `${v} days`, tone: 'late' })
-  }
-  if (begun && s[2] && s[3]) rows.push({ k: 'Took', v: `${days(s[2], s[3])} days` })
-  if (rows.length === 0) {
-    rows.push(
-      state === 'pend'
-        ? { k: 'Starts', v: `after stage ${cur + 1}` }
-        : { k: 'Dates', v: 'none recorded' },
-    )
-  }
-
-  return { state, status: s[1], rows }
 }
