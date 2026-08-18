@@ -12,6 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import type { PortalSnapshot, ScopedSnapshot } from '@/portal/types'
 import { scopeToCustomer, type GatewayPayload } from '@/portal/scope'
+import type { BacklogBand } from './lib/select'
 import { TooltipLayer } from './lib/tooltip'
 import { arw, initials, int } from './lib/format'
 import { Gateway } from './Gateway'
@@ -58,8 +59,9 @@ export function PortalApp() {
   const [mode, setMode] = useState<Mode>('customer')
   const [view, setView] = useState<ViewKey>('dash')
   const [so, setSo] = useState<string | null>(null)
-  /** Order-year filter. 'all' spans every project, which is the default. */
+  /** Project filters. Both default to everything. */
   const [year, setYear] = useState<string>('all')
+  const [band, setBand] = useState<BacklogBand>('all')
 
   const [gateway, setGateway] = useState<GatewayPayload | null>(null)
   const [gatewayError, setGatewayError] = useState<string | null>(null)
@@ -155,6 +157,7 @@ export function PortalApp() {
       setView('dash')
       setSo(null)
       setYear('all')
+      setBand('all')
       window.scrollTo({ top: 0 })
     },
     [portfolio],
@@ -247,7 +250,9 @@ export function PortalApp() {
               <Dashboard
                 data={scoped}
                 year={year}
+                band={band}
                 onYearChange={setYear}
+                onBandChange={setBand}
                 onOpenProject={(id) => {
                   setSo(id)
                   setView('proj')
@@ -257,7 +262,15 @@ export function PortalApp() {
           )}
           {phase === 'app' && scoped && view === 'proj' && (
             <section className="view on">
-              <Projects data={scoped} so={so} year={year} onYearChange={setYear} onOpenProject={setSo} />
+              <Projects
+                data={scoped}
+                so={so}
+                year={year}
+                band={band}
+                onYearChange={setYear}
+                onBandChange={setBand}
+                onOpenProject={setSo}
+              />
             </section>
           )}
           {phase === 'app' && scoped && view === 'fin' && (

@@ -13,25 +13,32 @@
 import { useMemo } from 'react'
 import type { ScopedSnapshot } from '@/portal/types'
 import { arw, egp, fd, Pill, s } from '../lib/format'
-import { byYear, indexItems, itemsOf, orderYears, sum } from '../lib/select'
+import { byBacklog, byYear, indexItems, itemsOf, orderYears, sum, type BacklogBand } from '../lib/select'
 import { Tiles } from '../components/Tiles'
 import { ProjectCard } from '../components/ProjectCard'
-import { YearFilter } from '../components/YearFilter'
+import { ProjectFilters } from '../components/ProjectFilters'
 
 export function Dashboard({
   data,
   year,
+  band,
   onYearChange,
+  onBandChange,
   onOpenProject,
 }: {
   data: ScopedSnapshot
   year: string
+  band: BacklogBand
   onYearChange: (year: string) => void
+  onBandChange: (band: BacklogBand) => void
   onOpenProject: (so: string) => void
 }) {
   const byId = useMemo(() => indexItems(data.items), [data.items])
   const years = useMemo(() => orderYears(data.orders), [data.orders])
-  const orders = useMemo(() => byYear(data.orders, year), [data.orders, year])
+  const orders = useMemo(
+    () => byBacklog(byYear(data.orders, year), band),
+    [data.orders, year, band],
+  )
 
   const contract = sum(orders, (o) => o.contract)
   const backlog = sum(orders, (o) => o.backlog)
@@ -67,21 +74,29 @@ export function Dashboard({
 
       <div className="sec-row">
         <div className="sec">Your projects</div>
-        <YearFilter
+        <ProjectFilters
           years={years}
-          value={year}
+          year={year}
+          band={band}
           showing={orders.length}
           total={data.orders.length}
-          onChange={onYearChange}
+          onYearChange={onYearChange}
+          onBandChange={onBandChange}
         />
       </div>
 
       {orders.length === 0 ? (
         <div className="card">
           <div className="empty">
-            No projects were ordered in {year}.{' '}
-            <button className="linkish" onClick={() => onYearChange('all')}>
-              Show all projects
+            No projects match these filters.{' '}
+            <button
+              className="linkish"
+              onClick={() => {
+                onYearChange('all')
+                onBandChange('all')
+              }}
+            >
+              Clear filters
             </button>
           </div>
         </div>

@@ -603,15 +603,25 @@ table.t td.r,table.t th.r{text-align:right}
 /* ---- year filter ----
    Label stays visible once a year is chosen, so the control keeps saying what it
    filters rather than becoming an unexplained number. */
-.yearfilter{display:flex;align-items:center;gap:9px;margin-bottom:12px;flex:none}
-.yearfilter label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
+.filters{display:flex;align-items:center;gap:16px;margin-bottom:12px;flex-wrap:wrap}
+.filt{display:flex;align-items:center;gap:9px}
+.filt label{font-size:10.5px;text-transform:uppercase;letter-spacing:.08em;
   color:var(--muted);font-weight:650;white-space:nowrap}
-.yearfilter select{background:var(--surface);border:1px solid var(--border);border-radius:8px;
+.filt select{background:var(--surface);border:1px solid var(--border);border-radius:8px;
   padding:7px 10px;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;
-  min-width:132px;transition:border-color .16s,box-shadow .16s}
-.yearfilter select:hover{border-color:#CFCFD0}
-.yearfilter select:focus-visible{outline:none;border-color:var(--brand);
+  min-width:150px;transition:border-color .16s,box-shadow .16s}
+.filt select:hover{border-color:#CFCFD0}
+.filt select:focus-visible{outline:none;border-color:var(--brand);
   box-shadow:0 0 0 3px rgba(241,103,34,.16)}
+/* On a phone the two controls stack and each takes the full width, rather than
+   shrinking the labels to the point of illegibility. */
+@media(max-width:640px){
+  .filters{gap:10px}
+  .filt{width:100%}
+  /* 44px is the minimum comfortable touch target; a 35px control is a mis-tap
+     waiting to happen on a phone held one-handed. */
+  .filt select{flex:1;min-width:0;min-height:44px}
+}
 .yf-count{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;white-space:nowrap}
 
 /* ---- a button that reads as a link, for inline recovery actions ---- */

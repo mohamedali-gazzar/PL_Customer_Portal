@@ -12,8 +12,8 @@ import type { PortalItem, ScopedSnapshot } from '@/portal/types'
 import { STATE } from '@/portal/types'
 import { STAGE_NAMES } from '@/portal/constants'
 import { arw, egp, fd, full, int, Pill, s } from '../lib/format'
-import { byYear, indexItems, itemsOf, orderYears } from '../lib/select'
-import { YearFilter } from '../components/YearFilter'
+import { byBacklog, byYear, indexItems, itemsOf, orderYears, type BacklogBand } from '../lib/select'
+import { ProjectFilters } from '../components/ProjectFilters'
 import { Tiles } from '../components/Tiles'
 import { ProjectCard } from '../components/ProjectCard'
 import { Timeline } from '../components/Timeline'
@@ -22,18 +22,25 @@ export function Projects({
   data,
   so,
   year,
+  band,
   onYearChange,
+  onBandChange,
   onOpenProject,
 }: {
   data: ScopedSnapshot
   so: string | null
   year: string
+  band: BacklogBand
   onYearChange: (year: string) => void
+  onBandChange: (band: BacklogBand) => void
   onOpenProject: (so: string | null) => void
 }) {
   const byId = useMemo(() => indexItems(data.items), [data.items])
   const years = useMemo(() => orderYears(data.orders), [data.orders])
-  const shown = useMemo(() => byYear(data.orders, year), [data.orders, year])
+  const shown = useMemo(
+    () => byBacklog(byYear(data.orders, year), band),
+    [data.orders, year, band],
+  )
   const order = so ? data.orders.find((o) => o.so === so) ?? null : null
 
   if (order) {
@@ -98,21 +105,29 @@ export function Projects({
             {data.orders.length} sales order{s(data.orders.length)}
           </p>
         </div>
-        <YearFilter
+        <ProjectFilters
           years={years}
-          value={year}
+          year={year}
+          band={band}
           showing={shown.length}
           total={data.orders.length}
-          onChange={onYearChange}
+          onYearChange={onYearChange}
+          onBandChange={onBandChange}
         />
       </div>
 
       {shown.length === 0 ? (
         <div className="card">
           <div className="empty">
-            No projects were ordered in {year}.{' '}
-            <button className="linkish" onClick={() => onYearChange('all')}>
-              Show all projects
+            No projects match these filters.{' '}
+            <button
+              className="linkish"
+              onClick={() => {
+                onYearChange('all')
+                onBandChange('all')
+              }}
+            >
+              Clear filters
             </button>
           </div>
         </div>
