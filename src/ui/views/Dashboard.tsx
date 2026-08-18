@@ -13,7 +13,8 @@
 import { useMemo } from 'react'
 import type { ScopedSnapshot } from '@/portal/types'
 import { arw, egp, fd, Pill, s } from '../lib/format'
-import { byBacklog, byYear, indexItems, itemsOf, orderYears, sum, type BacklogBand } from '../lib/select'
+import { byYear, indexItems, itemsOf, orderYears, sum } from '../lib/select'
+import { byStatus, type StatusFilter } from '../lib/status'
 import { Tiles } from '../components/Tiles'
 import { ProjectCard } from '../components/ProjectCard'
 import { ProjectFilters } from '../components/ProjectFilters'
@@ -21,24 +22,22 @@ import { ProjectFilters } from '../components/ProjectFilters'
 export function Dashboard({
   data,
   year,
-  band,
+  status,
   onYearChange,
-  onBandChange,
+  onStatusChange,
   onOpenProject,
 }: {
   data: ScopedSnapshot
   year: string
-  band: BacklogBand
+  status: StatusFilter
   onYearChange: (year: string) => void
-  onBandChange: (band: BacklogBand) => void
+  onStatusChange: (status: StatusFilter) => void
   onOpenProject: (so: string) => void
 }) {
   const byId = useMemo(() => indexItems(data.items), [data.items])
   const years = useMemo(() => orderYears(data.orders), [data.orders])
-  const orders = useMemo(
-    () => byBacklog(byYear(data.orders, year), band),
-    [data.orders, year, band],
-  )
+  const inYear = useMemo(() => byYear(data.orders, year), [data.orders, year])
+  const orders = useMemo(() => byStatus(inYear, status), [inYear, status])
 
   const contract = sum(orders, (o) => o.contract)
   const backlog = sum(orders, (o) => o.backlog)
@@ -75,13 +74,14 @@ export function Dashboard({
       <div className="sec-row">
         <div className="sec">Your projects</div>
         <ProjectFilters
+          orders={inYear}
           years={years}
           year={year}
-          band={band}
+          status={status}
           showing={orders.length}
           total={data.orders.length}
           onYearChange={onYearChange}
-          onBandChange={onBandChange}
+          onStatusChange={onStatusChange}
         />
       </div>
 
@@ -93,7 +93,7 @@ export function Dashboard({
               className="linkish"
               onClick={() => {
                 onYearChange('all')
-                onBandChange('all')
+                onStatusChange('all')
               }}
             >
               Clear filters

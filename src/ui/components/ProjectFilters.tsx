@@ -1,37 +1,44 @@
 'use client'
 
 /**
- * The project filters: when it was ordered, and how much of it is still open.
+ * The project filters: when it was ordered, and where it stands.
  *
- * One row, one count. Two independent controls each with their own tally would make
- * the reader work out the intersection themselves; a single "3 of 11 projects"
- * states the result of both, which is the only number that matters.
+ * Each status option carries its own count, so the shape of the portfolio is
+ * visible before anything is selected — "Past contractual date (62)" answers the
+ * question that would otherwise take four clicks to ask.
  *
- * Labels stay visible after a choice is made, so the row still says what it filters
- * rather than becoming two unexplained values.
+ * One row, one total. Two independent tallies would leave the reader working out
+ * the intersection themselves; a single "3 of 11 projects" states the result of
+ * both, which is the only number that matters.
  */
 
-import { BACKLOG_BANDS, type BacklogBand } from '../lib/select'
+import { PROJECT_STATUSES, statusCounts, type StatusFilter } from '../lib/status'
 import { s } from '../lib/format'
+import type { PortalOrder } from '@/portal/types'
 
 export function ProjectFilters({
+  orders,
   years,
   year,
-  band,
+  status,
   showing,
   total,
   onYearChange,
-  onBandChange,
+  onStatusChange,
 }: {
+  /** Scoped by year but not by status, so the counts do not vanish as you filter. */
+  orders: readonly PortalOrder[]
   years: readonly string[]
   year: string
-  band: BacklogBand
+  status: StatusFilter
   showing: number
   total: number
   onYearChange: (year: string) => void
-  onBandChange: (band: BacklogBand) => void
+  onStatusChange: (status: StatusFilter) => void
 }) {
-  const filtered = year !== 'all' || band !== 'all'
+  const counts = statusCounts(orders)
+  const filtered = year !== 'all' || status !== 'all'
+
   return (
     <div className="filters">
       <div className="filt">
@@ -47,16 +54,18 @@ export function ProjectFilters({
       </div>
 
       <div className="filt">
-        <label htmlFor="backlog-filter">Open backlog</label>
+        <label htmlFor="status-filter">Status</label>
         <select
-          id="backlog-filter"
-          value={band}
-          onChange={(e) => onBandChange(e.target.value as BacklogBand)}
+          id="status-filter"
+          value={status}
+          onChange={(e) => onStatusChange(e.target.value as StatusFilter)}
         >
-          <option value="all">Any value</option>
-          {BACKLOG_BANDS.map((b) => (
-            <option key={b.key} value={b.key}>
-              {b.label}
+          <option value="all">Any status</option>
+          {PROJECT_STATUSES.map((st) => (
+            // A status nothing is in is still listed, disabled — its absence is
+            // information, and a vanishing option looks like a bug.
+            <option key={st.key} value={st.key} disabled={counts[st.key] === 0}>
+              {`${st.label} (${counts[st.key]})`}
             </option>
           ))}
         </select>

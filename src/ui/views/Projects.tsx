@@ -12,7 +12,8 @@ import type { PortalItem, ScopedSnapshot } from '@/portal/types'
 import { STATE } from '@/portal/types'
 import { STAGE_NAMES } from '@/portal/constants'
 import { arw, egp, fd, full, int, Pill, s } from '../lib/format'
-import { byBacklog, byYear, indexItems, itemsOf, orderYears, type BacklogBand } from '../lib/select'
+import { byYear, indexItems, itemsOf, orderYears } from '../lib/select'
+import { byStatus, type StatusFilter } from '../lib/status'
 import { ProjectFilters } from '../components/ProjectFilters'
 import { Tiles } from '../components/Tiles'
 import { ProjectCard } from '../components/ProjectCard'
@@ -22,25 +23,23 @@ export function Projects({
   data,
   so,
   year,
-  band,
+  status,
   onYearChange,
-  onBandChange,
+  onStatusChange,
   onOpenProject,
 }: {
   data: ScopedSnapshot
   so: string | null
   year: string
-  band: BacklogBand
+  status: StatusFilter
   onYearChange: (year: string) => void
-  onBandChange: (band: BacklogBand) => void
+  onStatusChange: (status: StatusFilter) => void
   onOpenProject: (so: string | null) => void
 }) {
   const byId = useMemo(() => indexItems(data.items), [data.items])
   const years = useMemo(() => orderYears(data.orders), [data.orders])
-  const shown = useMemo(
-    () => byBacklog(byYear(data.orders, year), band),
-    [data.orders, year, band],
-  )
+  const inYear = useMemo(() => byYear(data.orders, year), [data.orders, year])
+  const shown = useMemo(() => byStatus(inYear, status), [inYear, status])
   const order = so ? data.orders.find((o) => o.so === so) ?? null : null
 
   if (order) {
@@ -106,13 +105,14 @@ export function Projects({
           </p>
         </div>
         <ProjectFilters
+          orders={inYear}
           years={years}
           year={year}
-          band={band}
+          status={status}
           showing={shown.length}
           total={data.orders.length}
           onYearChange={onYearChange}
-          onBandChange={onBandChange}
+          onStatusChange={onStatusChange}
         />
       </div>
 
@@ -124,7 +124,7 @@ export function Projects({
               className="linkish"
               onClick={() => {
                 onYearChange('all')
-                onBandChange('all')
+                onStatusChange('all')
               }}
             >
               Clear filters

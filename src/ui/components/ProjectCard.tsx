@@ -12,6 +12,7 @@ import type { PortalItem, PortalOrder } from '@/portal/types'
 import { STATE } from '@/portal/types'
 import { STAGE_NAMES } from '@/portal/constants'
 import { arw, egp, fd, Pill, s } from '../lib/format'
+import { projectStatus } from '../lib/status'
 
 /**
  * The next thing to happen on this order.
@@ -41,13 +42,9 @@ export function ProjectCard({
 }) {
   const next = nextOf(items)
 
-  const status = order.late ? (
-    <Pill kind="bad">Past contractual date</Pill>
-  ) : order.await ? (
-    <Pill kind="warn">Action needed</Pill>
-  ) : (
-    <Pill kind="ok">On track</Pill>
-  )
+  // The same function the status filter uses, so the badge and the filter can
+  // never disagree about what this project's status is.
+  const status = projectStatus(order)
 
   return (
     <div
@@ -71,7 +68,7 @@ export function ProjectCard({
             {order.pm ?? '—'}
           </div>
         </div>
-        {status}
+        <Pill kind={status.kind}>{status.label}</Pill>
       </div>
 
       <div className="prog">

@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 
 import type { PortalSnapshot, ScopedSnapshot } from '@/portal/types'
 import { scopeToCustomer, type GatewayPayload } from '@/portal/scope'
-import type { BacklogBand } from './lib/select'
+import type { StatusFilter } from './lib/status'
 import { TooltipLayer } from './lib/tooltip'
 import { arw, initials, int } from './lib/format'
 import { Gateway } from './Gateway'
@@ -61,7 +61,7 @@ export function PortalApp() {
   const [so, setSo] = useState<string | null>(null)
   /** Project filters. Both default to everything. */
   const [year, setYear] = useState<string>('all')
-  const [band, setBand] = useState<BacklogBand>('all')
+  const [status, setStatus] = useState<StatusFilter>('all')
 
   const [gateway, setGateway] = useState<GatewayPayload | null>(null)
   const [gatewayError, setGatewayError] = useState<string | null>(null)
@@ -157,7 +157,7 @@ export function PortalApp() {
       setView('dash')
       setSo(null)
       setYear('all')
-      setBand('all')
+      setStatus('all')
       window.scrollTo({ top: 0 })
     },
     [portfolio],
@@ -250,9 +250,9 @@ export function PortalApp() {
               <Dashboard
                 data={scoped}
                 year={year}
-                band={band}
+                status={status}
                 onYearChange={setYear}
-                onBandChange={setBand}
+                onStatusChange={setStatus}
                 onOpenProject={(id) => {
                   setSo(id)
                   setView('proj')
@@ -266,9 +266,9 @@ export function PortalApp() {
                 data={scoped}
                 so={so}
                 year={year}
-                band={band}
+                status={status}
                 onYearChange={setYear}
-                onBandChange={setBand}
+                onStatusChange={setStatus}
                 onOpenProject={setSo}
               />
             </section>

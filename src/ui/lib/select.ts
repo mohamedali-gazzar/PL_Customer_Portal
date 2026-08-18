@@ -29,29 +29,3 @@ export function byYear(orders: readonly PortalOrder[], year: string): PortalOrde
   if (year === 'all') return [...orders]
   return orders.filter((o) => o.soDate?.startsWith(year))
 }
-
-/**
- * Open-backlog size bands.
- *
- * Fixed thresholds rather than quantiles of whatever is on screen: a band has to
- * mean the same thing every time it is chosen, and "over ten million" is a
- * sentence a project manager can act on where "the top tercile" is not.
- *
- * They also happen to divide the real portfolio usefully — 7 orders carry a third
- * of the value, 74 carry most of the rest, and 76 are under a million.
- */
-export const BACKLOG_BANDS = [
-  { key: 'high', label: 'EGP 10M and over', min: 10_000_000, max: Infinity },
-  { key: 'mid', label: 'EGP 1M – 10M', min: 1_000_000, max: 10_000_000 },
-  { key: 'low', label: 'Under EGP 1M', min: 0, max: 1_000_000 },
-] as const
-
-export type BacklogBand = (typeof BACKLOG_BANDS)[number]['key'] | 'all'
-
-export function byBacklog(orders: readonly PortalOrder[], band: BacklogBand): PortalOrder[] {
-  if (band === 'all') return [...orders]
-  const spec = BACKLOG_BANDS.find((b) => b.key === band)
-  if (!spec) return [...orders]
-  // Half-open at the top, so an order worth exactly 10M lands in one band, not two.
-  return orders.filter((o) => o.backlog >= spec.min && o.backlog < spec.max)
-}
