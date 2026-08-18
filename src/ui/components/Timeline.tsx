@@ -208,36 +208,6 @@ export function Timeline({
   return (
     <div className="card">
       <div className="tl-wrap">
-        <div className="tl-legend">
-          <span className="lg">
-            <span className="sw kdot" />
-            Order placed
-          </span>
-          {PHASES.map((p, i) => (
-            <span className="lg" key={p.t}>
-              <span className="sw" style={{ background: PHASE_HEX[i] }} />
-              {`${p.t} ${p.n}`}
-            </span>
-          ))}
-          <span className="lg">
-            <span className="sw kwait" />
-            Waiting
-          </span>
-          <span className="div" />
-          <span className="lg">
-            <span className="sw kcaret" />
-            Date the plan called for
-          </span>
-          <span className="lg">
-            <span className="sw hatch-key" />
-            Time past that date
-          </span>
-          <span className="lg">
-            <span className="sw kdia" />
-            Contractual delivery
-          </span>
-        </div>
-
         <div className="tl-scale">
           {months.map((d, i) => {
             if (i % step) return null
