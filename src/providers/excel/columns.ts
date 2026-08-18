@@ -1,9 +1,9 @@
 /**
  * The single source of truth for the backlog export's shape.
  *
- * Header names are transcribed verbatim from
- *   "PM Phase Cycle Times - Open Backlog_2018-01-01_2026-08-11 (1).xlsx",
- * sheet "Query Report", 58 columns.
+ * Header names are transcribed verbatim from the PM Phase Cycle Times "Open
+ * Backlog" report, sheet "Query Report", 58 columns. Verified unchanged across the
+ * 11 and 18 August 2026 exports.
  *
  * The loader validates the real header against this list and refuses to run on a
  * mismatch. A silently renamed or reordered column would otherwise produce a
