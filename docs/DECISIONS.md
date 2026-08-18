@@ -47,22 +47,35 @@ and both providers feed it.
 
 ---
 
-## D2 — The derivation is verified against the approved dataset
+## D2 — The rules are tested against hand-written rows, not against the export
 
-**Decided:** correctness is demonstrated, not argued.
+**Decided:** `tests/portal/derive.test.ts` tests the derivation from fixture rows.
+There is no test that reads the spreadsheet.
 
-The prototype was signed off with its fully-derived dataset inline. That is a
-complete statement of the expected output for all 480 lines, so
-`tests/portal/derivation.test.ts` replays the raw export through our own rules and
-asserts equality field by field — every milestone state, status, actual start,
-actual end and planned date, plus every rollup and cycle-time statistic.
+**How the rules were established:** the approved prototype was signed off with its
+fully-derived dataset inline — a complete statement of the expected output for all
+480 lines of the 11 August export. Every rule in `derive.ts` was verified against
+it field by field: milestone state, status, actual start, actual end, planned date,
+plus every rollup and cycle-time statistic. It matched exactly.
 
-It passes exactly. Two tolerances are deliberate and documented in the test: floats
-compare to two decimal places, and strings compare trimmed (23 item names carry a
-trailing space the prototype preserved and our loader strips).
+**Why that test no longer exists:** it needed the 11 August export beside the
+oracle. Only the current export is kept (D11), so the pair is gone, and a test that
+cannot run is worse than no test — it reports success while checking nothing.
 
-**Consequence:** the ERPNext provider produces the same intermediate rows and
-inherits the same verified rules, so the two sources cannot drift apart.
+**What replaced it:** the shapes that proof exercised are now fixture rows, each
+one annotated with the real-data case it represents. The knowledge lives in code
+rather than in a data file, and it survives every future export.
+
+---
+
+## D11 — Only the current export is kept
+
+**Decided by the data owner:** one spreadsheet, the latest. No archive of previous
+exports, and no second copy pinned for testing.
+
+**Consequence:** a data refresh is `npm run build:snapshot`, commit, push. Nothing
+in the test suite depends on a particular export, so nothing breaks when the data
+moves — which it does weekly.
 
 ---
 
@@ -128,15 +141,17 @@ markers appear with no code change.
 
 ---
 
-## D8 — Demo affordances are a flag, and refuse to default on in production
+## D8 — The sign-in picker is a flag, on by default
 
-The prototype's sign-in screen publishes the company's total backlog and all 107
-customer names and values to an unauthenticated visitor. Correct for a demo,
-unacceptable on the internet.
+The sign-in screen publishes the company's total backlog and every customer name
+and open value to an unauthenticated visitor.
 
-`PORTAL_DEMO_MODE` controls both. It defaults on outside production and the app
-**refuses to boot** with it on in production unless `PORTAL_ALLOW_DEMO_IN_PRODUCTION=1`
-is also set for a deliberate internal staging deployment.
+`PORTAL_DEMO_MODE` controls both, and **defaults on** — because the customer picker
+is currently the only way into the portal, so gating it off in production would make
+production unusable. The earlier double-gate was removed with it: the data owner has
+decided the data is not confidential (D10), so the control is access protection at
+the host, not a flag in the code. Set it to `0` once logins are provisioned from
+ERPNext contacts.
 
 **Where enforced:** `src/server/config.ts`; `gatewayView` in `src/portal/scope.ts`;
 `tests/security/tenant-isolation.test.ts`.

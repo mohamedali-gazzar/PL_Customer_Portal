@@ -6,9 +6,9 @@ what the order is worth.
 
 ERPNext is the single source of truth. The portal writes nothing back.
 
-**Status:** running locally against the real backlog export. Not yet deployed, not
-yet connected to the live ERP, and not yet safe to expose to the internet — see
-[Before this goes online](#before-this-goes-online).
+**Status:** deployed and serving the 18 August export. Not yet connected to the live
+ERP, and the deployment URL is public with real customer data on it — see
+[What is still open](#what-is-still-open).
 
 ---
 
@@ -18,15 +18,15 @@ yet connected to the live ERP, and not yet safe to expose to the internet — se
 npm install
 ```
 
-Put the PM Phase Cycle Times export at `data/backlog.xlsx`, copy `.env.example` to
-`.env.local`, then:
+Nothing needs configuring — the portal serves the snapshot committed at
+`content/portal-snapshot.json`.
 
 ```bash
 npm run dev
 ```
 
-It serves on <http://localhost:3210>. Sign in either as a customer (pick any of the
-107 from the demo list) or as Powerline staff with an `@powerline.com.eg` address.
+It serves on <http://localhost:3210>. Sign in as a customer (pick any from the list)
+or as Powerline staff with an `@powerline.com.eg` address.
 
 | Command | What it does |
 | --- | --- |
@@ -84,23 +84,27 @@ Statuses are never stored and never typed by anyone. They are computed from
 documents the factory already produces, so there is no second system to keep in
 step and nothing to go stale.
 
-### The derivation is verified, not asserted
+### The derivation is tested, not asserted
 
-The prototype was signed off with its fully-derived dataset inline: a complete
-statement of what every status, date and percentage should be for all 480 order
-lines. `tests/portal/derivation.test.ts` replays the raw export through
-`src/portal/derive.ts` and asserts the result matches that dataset field for
-field — 480 lines × 7 milestones × (state, status, start, end, planned), plus every
-rollup and every cycle-time statistic.
+`src/portal/derive.ts` decides every status a customer sees, so
+`tests/portal/derive.test.ts` tests those rules directly — the unit rate recovered
+from the open value, a joined work-order status resolving to the most advanced,
+`Closed` counting as a completion, a revision not standing in for an initial
+drawing submission, a re-planned material date superseding the original, rework
+reported neutrally, and progress averaging only the stages that can be computed.
 
-It currently passes exactly. If a rule changes, a customer somewhere sees a
-different status, and that test names it.
+The cases are hand-written rows, not a spreadsheet. That is deliberate: the export
+is replaced whenever a new one is produced, and a test that read it would have to
+be regenerated each time — and would then be unable to tell "the data moved" from
+"a rule broke", which is the only thing it exists to say.
 
-To enable it (both inputs are real customer data, so both are gitignored):
+Each case is a shape that occurs in the real export, and all of them were verified
+row for row against the approved prototype's own dataset when the rules were
+written. That one-time proof is what established the rules; these tests are what
+keep them.
 
-```bash
-node scripts/extract-prototype-oracle.mjs path/to/Powerline_Customer_Portal_4.html
-```
+`tests/portal/journey.test.ts` covers the nine-level ladder, and
+`tests/security/` covers tenant isolation and session forgery.
 
 ---
 
@@ -116,14 +120,12 @@ node scripts/extract-prototype-oracle.mjs path/to/Powerline_Customer_Portal_4.ht
 | ERP never called from the browser | The browser only ever talks to this app |
 | Load protection | One snapshot, cached, single-flight. A hundred simultaneous customers cause one read |
 
-### Before this goes online
+### What is still open
 
-**`PORTAL_DEMO_MODE` must be `0`.** The prototype's sign-in screen shows the
-company's total open backlog and lists all 107 customers with their names and open
-values — to an unauthenticated visitor. That is right for a demo and wrong for the
-internet. The app refuses to boot with it enabled in production unless
-`PORTAL_ALLOW_DEMO_IN_PRODUCTION=1` is also set for a deliberate internal staging
-deployment.
+**The sign-in screen is public.** While `PORTAL_DEMO_MODE` is on it lists every
+customer with their name and open value, and shows the company's total backlog, to
+anyone holding the URL. Access protection at the host is the control — the data
+itself is real by decision (D10). Set `PORTAL_DEMO_MODE=0` once real logins exist.
 
 **Sign-in is not authentication yet.** The current export carries no contact
 records, so there is nobody to check a password against; the demo picker stands in
@@ -174,7 +176,10 @@ continuously and this file stops being part of the running system.
 
 `content/portal-snapshot.json` holds real customer names, contract values and
 delivery performance, by the data owner's decision (D10). It travels wherever the
-repository travels.
+repository travels, and the repository is currently public.
+
+The raw export at `data/backlog.xlsx` stays out of the repository, and only the
+current one is kept — there is no archive of previous exports (D11).
 
 ---
 
@@ -194,9 +199,7 @@ preparation the brief lists in §8.
 
 ## Data governance
 
-`data/` is gitignored and untracked, and so is every `.xlsx`. The backlog export,
-the derived snapshot and the prototype oracle are all real customer data: 107 named
-companies, their order values and their delivery performance.
+`data/` is gitignored and untracked, and so is every `.xlsx`.
 
 **Before pushing to GitHub**, confirm the repository is private and check that
 nothing under `data/` has been added. `git status --ignored` will show it sitting
