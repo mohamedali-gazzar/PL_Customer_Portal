@@ -21,10 +21,10 @@ import type { PortalItem, PortalOrder } from '@/portal/types'
  * shop floor yet, and that is the most useful thing to be able to look for.
  */
 export const WO_STATUSES = [
-  { key: 'completed', label: 'Completed' },
-  { key: 'inprocess', label: 'In process' },
-  { key: 'notstarted', label: 'Not started' },
-  { key: 'nowo', label: 'No work order yet' },
+  { key: 'completed', label: 'wo.completed' },
+  { key: 'inprocess', label: 'wo.inprocess' },
+  { key: 'notstarted', label: 'wo.notstarted' },
+  { key: 'nowo', label: 'wo.nowo' },
 ] as const
 
 export type WoStatusKey = (typeof WO_STATUSES)[number]['key']

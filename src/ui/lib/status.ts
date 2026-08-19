@@ -21,10 +21,10 @@ import type { PillKind } from './format'
  *   on track       nothing to report
  */
 export const PROJECT_STATUSES = [
-  { key: 'hold', label: 'On hold', kind: 'warn' },
-  { key: 'late', label: 'Past contractual date', kind: 'bad' },
-  { key: 'action', label: 'Action needed', kind: 'warn' },
-  { key: 'ontrack', label: 'On track', kind: 'ok' },
+  { key: 'hold', label: 'status.hold', kind: 'warn' },
+  { key: 'late', label: 'status.late', kind: 'bad' },
+  { key: 'action', label: 'status.action', kind: 'warn' },
+  { key: 'ontrack', label: 'status.ontrack', kind: 'ok' },
 ] as const
 
 export type ProjectStatusKey = (typeof PROJECT_STATUSES)[number]['key']
@@ -32,6 +32,7 @@ export type StatusFilter = ProjectStatusKey | 'all'
 
 export interface ProjectStatus {
   readonly key: ProjectStatusKey
+  /** A message key — the label is resolved by the caller, in the reader's language. */
   readonly label: string
   readonly kind: PillKind
 }

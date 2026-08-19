@@ -12,11 +12,12 @@
 
 import { useMemo } from 'react'
 import type { ScopedSnapshot } from '@/portal/types'
-import { arw, fd, Pill, s } from '../lib/format'
+import { arw, fd, Pill } from '../lib/format'
+import { useT } from '../lib/i18n'
 import { byYear, indexItems, itemsOf, orderYears, sum } from '../lib/select'
 import { byWoStatus, type WoFilter } from '../lib/wo-status'
 import { Kpis } from '../components/Kpis'
-import { ProjectCard } from '../components/ProjectCard'
+import { ProjectList } from '../components/ProjectList'
 import { ProjectFilters } from '../components/ProjectFilters'
 
 export function Dashboard({
@@ -34,6 +35,7 @@ export function Dashboard({
   onWoChange: (wo: WoFilter) => void
   onOpenProject: (so: string) => void
 }) {
+  const t = useT()
   const byId = useMemo(() => indexItems(data.items), [data.items])
   const years = useMemo(() => orderYears(data.orders), [data.orders])
   const inYear = useMemo(() => byYear(data.orders, year), [data.orders, year])
@@ -41,39 +43,29 @@ export function Dashboard({
 
   const contract = sum(orders, (o) => o.contract)
   const backlog = sum(orders, (o) => o.backlog)
-  const delivered = sum(orders, (o) => o.dvalue)
-  const panels = sum(orders, (o) => o.qty)
-  const panelsDelivered = sum(orders, (o) => o.deliv)
   const late = orders.filter((o) => o.late).length
-  const scope = year === 'all' ? 'All projects' : `Ordered in ${year}`
+  const scope = year === 'all' ? t('kpi.allProjects') : t('kpi.orderedIn', { year })
 
   return (
     <>
       <div className="pgh">
         <div>
-          <h1 className="pt">Welcome back</h1>
+          <h1 className="pt">{t('dash.welcome')}</h1>
           <p className="psub">
-            {arw(data.customer.name)} · data as at {fd(data.meta.exportDate)}
+            {arw(data.customer.name)} · {t('dash.asAt', { date: fd(data.meta.exportDate) })}
           </p>
         </div>
         {late ? (
-          <Pill kind="bad">{`${late} order${s(late)} past contractual date`}</Pill>
+          <Pill kind="bad">{t('dash.pastDue', { n: late })}</Pill>
         ) : (
-          <Pill kind="ok">All orders within contractual date</Pill>
+          <Pill kind="ok">{t('dash.allWithin')}</Pill>
         )}
       </div>
 
-      <Kpis
-        contract={contract}
-        delivered={delivered}
-        backlog={backlog}
-        scope={scope}
-        panels={panels}
-        panelsDelivered={panelsDelivered}
-      />
+      <Kpis contract={contract} backlog={backlog} scope={scope} />
 
       <div className="sec-row">
-        <div className="sec">Your projects</div>
+        <div className="sec">{t('dash.yourProjects')}</div>
         <ProjectFilters
           orders={inYear}
           itemsById={byId}
@@ -90,7 +82,7 @@ export function Dashboard({
       {orders.length === 0 ? (
         <div className="card">
           <div className="empty">
-            No projects match these filters.{' '}
+            {t('filter.noMatch')}{' '}
             <button
               className="linkish"
               onClick={() => {
@@ -98,22 +90,12 @@ export function Dashboard({
                 onWoChange('all')
               }}
             >
-              Clear filters
+              {t('filter.clear')}
             </button>
           </div>
         </div>
       ) : (
-        <div className="grid2">
-          {orders.map((o, i) => (
-            <ProjectCard
-              key={o.so}
-              order={o}
-              items={itemsOf(o, byId)}
-              index={i}
-              onOpen={onOpenProject}
-            />
-          ))}
-        </div>
+        <ProjectList orders={orders} items={data.items} onOpen={onOpenProject} />
       )}
     </>
   )

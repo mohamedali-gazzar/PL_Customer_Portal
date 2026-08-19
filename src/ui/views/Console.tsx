@@ -326,7 +326,7 @@ export function Console({
                   </td>
                   <td className="r">
                     <button
-                      style={{ color: 'var(--brand-ink)', fontWeight: 600 }}
+                      className="row-open"
                       onClick={() => onOpenCustomer(c.name)}
                     >
                       Open portal →

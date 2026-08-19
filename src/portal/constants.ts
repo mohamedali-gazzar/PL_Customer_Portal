@@ -67,16 +67,21 @@ export const PHASE_REPORT_NAMES = [
 ] as const
 
 /**
- * The seven-step stage ramp: one hue, monotonically darkening.
+ * The seven-step stage ramp: one hue, monotonically *brightening*.
  *
  * Ordinal data gets an ordinal scale — lightness alone carries the order, so it
  * survives greyscale printing and the common colour-vision deficiencies.
+ *
+ * The direction is reversed from the light-mode original. On white, darkening as
+ * the sequence advances is correct; against this interface's near-black ground
+ * those late steps measured under 2:1 and simply disappeared. Brightening also
+ * happens to read as advancement, which the earlier ramp had to fight.
  */
-export const STAGE_HEX = ['#F0A181', '#E9855B', '#DE6935', '#CE5004', '#B14404', '#953700', '#7A2C02'] as const
+export const STAGE_HEX = ['#A85B2E', '#BC682F', '#D07734', '#E08A45', '#E9A162', '#F0B884', '#F5CDA8'] as const
 
-/** The eight-step phase ramp used by the timeline ribbon. */
+/** The eight-step phase ramp used by the timeline ribbon. Same reversal. */
 export const PHASE_HEX = [
-  '#F0A181', '#E7875F', '#DD6C3A', '#CE520B', '#B24504', '#973801', '#7C2D01', '#632201',
+  '#9C5228', '#AE5C2B', '#C0672F', '#D07434', '#DE8543', '#E89C60', '#F0B183', '#F5C6A3',
 ] as const
 
 /** Customer-facing status wording. Kept in one place so tone stays consistent. */

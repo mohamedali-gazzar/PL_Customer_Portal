@@ -11,12 +11,13 @@ import { useMemo } from 'react'
 import type { PortalItem, ScopedSnapshot } from '@/portal/types'
 import { STATE } from '@/portal/types'
 import { STAGE_NAMES } from '@/portal/constants'
-import { arw, egp, fd, full, int, Pill, s } from '../lib/format'
+import { arw, egp, fd, full, int, Pill } from '../lib/format'
+import { useT, type Translate } from '../lib/i18n'
 import { byYear, indexItems, itemsOf, orderYears } from '../lib/select'
 import { byWoStatus, type WoFilter } from '../lib/wo-status'
 import { ProjectFilters } from '../components/ProjectFilters'
 import { Tiles } from '../components/Tiles'
-import { ProjectCard } from '../components/ProjectCard'
+import { ProjectList } from '../components/ProjectList'
 import { Timeline } from '../components/Timeline'
 
 export function Projects({
@@ -36,6 +37,7 @@ export function Projects({
   onWoChange: (wo: WoFilter) => void
   onOpenProject: (so: string | null) => void
 }) {
+  const t = useT()
   const byId = useMemo(() => indexItems(data.items), [data.items])
   const years = useMemo(() => orderYears(data.orders), [data.orders])
   const inYear = useMemo(() => byYear(data.orders, year), [data.orders, year])
@@ -55,41 +57,45 @@ export function Projects({
           <div>
             <h1 className="pt">{arw(order.proj)}</h1>
             <p className="psub">
-              {order.so} · ordered {fd(order.soDate)} · contract {full(order.contract)} · contractual
-              delivery {order.cDate ? fd(order.cDate) : 'not set'}
-              {order.cPeriod ? ` (${order.cPeriod}-day period)` : ''} · PM: {order.pm ?? '—'}
+              {order.so} · {t('proj.ordered', { date: fd(order.soDate) })} ·{' '}
+              {t('proj.contract', { value: full(order.contract) })} ·{' '}
+              {t('proj.contractualDelivery', {
+                date: order.cDate ? fd(order.cDate) : t('proj.notSet'),
+              })}
+              {order.cPeriod ? ` ${t('proj.dayPeriod', { n: order.cPeriod })}` : ''} ·{' '}
+              {t('proj.pm', { name: order.pm ?? '—' })}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '7px' }}>
-            {order.hold ? <Pill kind="warn">On hold</Pill> : null}
+            {order.hold ? <Pill kind="warn">{t('status.hold')}</Pill> : null}
             {order.late ? (
-              <Pill kind="bad">Past contractual date</Pill>
+              <Pill kind="bad">{t('status.late')}</Pill>
             ) : (
-              <Pill kind="ok">Within contractual date</Pill>
+              <Pill kind="ok">{t('proj.within')}</Pill>
             )}
-            <Pill kind="info">{`${order.pct}% complete`}</Pill>
+            <Pill kind="info">{t('proj.complete', { n: order.pct })}</Pill>
           </div>
         </div>
 
         <Tiles
           tiles={[
             {
-              lab: 'Total contract value',
+              lab: t('kpi.contract'),
               val: egp(order.contract),
-              sub: `${order.qty} panel${s(order.qty)} ordered`,
+              sub: t('proj.panelsOrdered', { n: order.qty }),
             },
             {
-              lab: 'Total open backlog',
+              lab: t('kpi.backlog'),
               val: egp(order.backlog),
-              sub: `${order.qty - order.deliv} panel${s(order.qty - order.deliv)} remaining`,
+              sub: t('proj.panelsRemaining', { n: order.qty - order.deliv }),
             },
           ]}
         />
 
-        <div className="sec">Item detail</div>
-        <ItemTable items={items} />
+        <div className="sec">{t('proj.itemDetail')}</div>
+        <ItemTable items={items} t={t} />
 
-        <div className="sec">Item milestone timeline</div>
+        <div className="sec">{t('proj.timeline')}</div>
         <Timeline order={order} items={items} today={data.meta.exportDate} />
       </>
     )
@@ -99,9 +105,9 @@ export function Projects({
     <>
       <div className="pgh">
         <div>
-          <h1 className="pt">Projects</h1>
+          <h1 className="pt">{t('proj.title')}</h1>
           <p className="psub">
-            {data.orders.length} sales order{s(data.orders.length)}
+            {t('proj.salesOrders', { n: data.orders.length })}
           </p>
         </div>
         <ProjectFilters
@@ -120,7 +126,7 @@ export function Projects({
       {shown.length === 0 ? (
         <div className="card">
           <div className="empty">
-            No projects match these filters.{' '}
+            {t('filter.noMatch')}{' '}
             <button
               className="linkish"
               onClick={() => {
@@ -128,37 +134,33 @@ export function Projects({
                 onWoChange('all')
               }}
             >
-              Clear filters
+              {t('filter.clear')}
             </button>
           </div>
         </div>
       ) : (
-        <div className="grid2">
-          {shown.map((o, i) => (
-            <ProjectCard key={o.so} order={o} items={itemsOf(o, byId)} index={i} onOpen={onOpenProject} />
-          ))}
-        </div>
+        <ProjectList orders={shown} items={data.items} onOpen={onOpenProject} />
       )}
     </>
   )
 }
 
-function ItemTable({ items }: { items: readonly PortalItem[] }) {
+function ItemTable({ items, t }: { items: readonly PortalItem[]; t: Translate }) {
   return (
     <div className="card scrollx">
       <table className="t">
         <thead>
           <tr>
             <th className="lineno">#</th>
-            <th>Item</th>
-            <th>Description</th>
-            <th className="r">Qty</th>
-            <th className="r">Delivered</th>
-            <th>Work order</th>
-            <th>Current stage</th>
-            <th>Material</th>
-            <th className="r">Progress</th>
-            <th className="r">Contract value</th>
+            <th>{t('table.item')}</th>
+            <th>{t('table.description')}</th>
+            <th className="r">{t('table.qty')}</th>
+            <th className="r">{t('table.delivered')}</th>
+            <th>{t('table.workOrder')}</th>
+            <th>{t('table.currentStage')}</th>
+            <th>{t('table.material')}</th>
+            <th className="r">{t('table.progress')}</th>
+            <th className="r">{t('table.contractValue')}</th>
           </tr>
         </thead>
         <tbody>
@@ -181,7 +183,7 @@ function ItemTable({ items }: { items: readonly PortalItem[] }) {
                   {it.hold ? (
                     <>
                       {' '}
-                      <Pill kind="warn">Hold</Pill>
+                      <Pill kind="warn">{t('table.hold')}</Pill>
                     </>
                   ) : null}
                 </td>
@@ -197,7 +199,7 @@ function ItemTable({ items }: { items: readonly PortalItem[] }) {
                   <span style={{ color: 'var(--muted)', fontSize: '11.5px' }}>{it.st[cur]![1]}</span>
                 </td>
                 <td>
-                  <Pill kind={materialKind}>{it.matStatus ?? 'No work order'}</Pill>
+                  <Pill kind={materialKind}>{it.matStatus ?? t('table.noWorkOrder')}</Pill>
                 </td>
                 <td className="r">
                   <b className="num">{it.pct}%</b>

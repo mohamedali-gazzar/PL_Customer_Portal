@@ -14,6 +14,10 @@ import type { PortalSnapshot, ScopedSnapshot } from '@/portal/types'
 import { scopeToCustomer, type GatewayPayload } from '@/portal/scope'
 import type { WoFilter } from './lib/wo-status'
 import { TooltipLayer } from './lib/tooltip'
+import { PrefsProvider } from './lib/prefs'
+import type { StoredPrefs } from './lib/prefs-cookie'
+import { I18nProvider, useT, type MessageKey } from './lib/i18n'
+import { Prefs } from './components/Prefs'
 import { arw, initials, int } from './lib/format'
 import { Gateway } from './Gateway'
 import { Boot } from './Boot'
@@ -28,7 +32,7 @@ export type ViewKey = 'dash' | 'proj' | 'fin' | 'docs' | 'int'
 
 interface NavItem {
   readonly key: ViewKey
-  readonly label: string
+  readonly label: MessageKey
   /**
    * Built, but not yet fed by the ERP.
    *
@@ -41,17 +45,18 @@ interface NavItem {
 
 const NAVS: Record<Mode, readonly NavItem[]> = {
   customer: [
-    { key: 'dash', label: 'Dashboard' },
-    { key: 'proj', label: 'Projects' },
-    { key: 'fin', label: 'Finance', soon: true },
-    { key: 'docs', label: 'Documents', soon: true },
+    { key: 'dash', label: 'nav.dashboard' },
+    { key: 'proj', label: 'nav.projects' },
+    { key: 'fin', label: 'nav.finance', soon: true },
+    { key: 'docs', label: 'nav.documents', soon: true },
   ],
-  internal: [{ key: 'int', label: 'PM Console' }],
+  internal: [{ key: 'int', label: 'nav.console' }],
 }
 
 type Phase = 'gateway' | 'boot' | 'app'
 
-export function PortalApp() {
+function PortalShell() {
+  const t = useT()
   const [phase, setPhase] = useState<Phase>('gateway')
   const [leaving, setLeaving] = useState(false)
   const [bootSteps, setBootSteps] = useState<string[]>([])
@@ -200,7 +205,7 @@ export function PortalApp() {
             <div className="logo">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img className="pl-logo" src="/brand/powerline-white.png" alt="Powerline — باورلاين" />
-              <small>{mode === 'internal' ? 'Project Management Console' : 'Customer Portal'}</small>
+              <small>{mode === 'internal' ? t('shell.pmConsole') : t('shell.customerPortal')}</small>
             </div>
 
             <nav className="main">
@@ -211,10 +216,10 @@ export function PortalApp() {
                     className="soon"
                     disabled
                     aria-disabled="true"
-                    title={`${item.label} — coming soon`}
+                    title={`${t(item.label)} — ${t('nav.soon')}`}
                   >
-                    {item.label}
-                    <span className="soon-tag">Soon</span>
+                    {t(item.label)}
+                    <span className="soon-tag">{t('nav.soon')}</span>
                   </button>
                 ) : (
                   <button
@@ -222,23 +227,25 @@ export function PortalApp() {
                     className={view === item.key ? 'on' : undefined}
                     onClick={() => go(item.key)}
                   >
-                    {item.label}
+                    {t(item.label)}
                   </button>
                 ),
               )}
             </nav>
 
+            <Prefs />
+
             <div className="who">
               {/* Staff who stepped into a customer's portal need the way back. */}
               {portfolio && showingCustomer ? (
                 <button className="out" onClick={backToConsole}>
-                  ← PM console
+                  {t('shell.backToConsole')}
                 </button>
               ) : null}
               <span className="nm">{arw(who)}</span>
               <span className="av">{showingCustomer ? initials(who) : 'PL'}</span>
               <button className="out" onClick={signOut}>
-                Sign out
+                {t('shell.signOut')}
               </button>
             </div>
           </div>
@@ -291,5 +298,19 @@ export function PortalApp() {
         </main>
       </div>
     </TooltipLayer>
+  )
+}
+
+/**
+ * Appearance and language wrap the whole application, because both are decisions
+ * about the interface rather than about any screen inside it.
+ */
+export function PortalApp({ prefs }: { prefs?: StoredPrefs }) {
+  return (
+    <PrefsProvider initial={prefs}>
+      <I18nProvider>
+        <PortalShell />
+      </I18nProvider>
+    </PrefsProvider>
   )
 }

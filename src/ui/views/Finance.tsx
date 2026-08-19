@@ -131,7 +131,7 @@ export function Finance({ data }: { data: ScopedSnapshot }) {
             ))}
           </tbody>
           <tfoot>
-            <tr style={{ fontWeight: 700, background: '#FAFAFA' }}>
+            <tr className="total">
               <td colSpan={3}>Total</td>
               <td className="r num">{int(contract)}</td>
               <td className="r num">{int(delivered)}</td>

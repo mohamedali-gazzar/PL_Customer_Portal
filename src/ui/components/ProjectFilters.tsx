@@ -13,7 +13,8 @@
  */
 
 import { WO_STATUSES, woStatusCounts, type WoFilter } from '../lib/wo-status'
-import { s } from '../lib/format'
+import { useT } from '../lib/i18n'
+import type { MessageKey } from '../lib/i18n'
 import type { PortalItem, PortalOrder } from '@/portal/types'
 
 export function ProjectFilters({
@@ -38,16 +39,17 @@ export function ProjectFilters({
   onYearChange: (year: string) => void
   onWoChange: (wo: WoFilter) => void
 }) {
+  const t = useT()
   const counts = woStatusCounts(orders, itemsById)
   const filtered = year !== 'all' || wo !== 'all'
 
   return (
     <div className="filters">
       <div className="filt">
-        <label htmlFor="year-filter">Order year</label>
+        <label htmlFor="year-filter">{t('filter.orderYear')}</label>
         <span className="sel">
           <select id="year-filter" value={year} onChange={(e) => onYearChange(e.target.value)}>
-            <option value="all">All projects</option>
+            <option value="all">{t('filter.allProjects')}</option>
             {years.map((y) => (
               <option key={y} value={y}>
                 {y}
@@ -58,15 +60,15 @@ export function ProjectFilters({
       </div>
 
       <div className="filt">
-        <label htmlFor="wo-filter">Work order</label>
+        <label htmlFor="wo-filter">{t('filter.workOrder')}</label>
         <span className="sel">
           <select id="wo-filter" value={wo} onChange={(e) => onWoChange(e.target.value as WoFilter)}>
-            <option value="all">Any status</option>
+            <option value="all">{t('filter.anyStatus')}</option>
             {WO_STATUSES.map((st) => (
               // A status nothing is in is still listed, disabled — its absence is
               // information, and a vanishing option looks like a bug.
               <option key={st.key} value={st.key} disabled={counts[st.key] === 0}>
-                {`${st.label} (${counts[st.key]})`}
+                {`${t(st.label as MessageKey)} (${counts[st.key]})`}
               </option>
             ))}
           </select>
@@ -74,7 +76,9 @@ export function ProjectFilters({
       </div>
 
       <span className="yf-count">
-        {filtered ? `${showing} of ${total} project${s(total)}` : `${total} project${s(total)}`}
+        {filtered
+          ? t('filter.ofProjects', { shown: showing, total })
+          : t('filter.projects', { n: total })}
       </span>
     </div>
   )

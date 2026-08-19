@@ -28,12 +28,14 @@ export const JOURNEY_LABELS = [
 ] as const
 
 /**
- * An ordinal ramp: one hue, darkening monotonically, so position in the journey is
- * carried by lightness alone and survives greyscale and colour-vision deficiency.
- * Level 0 is neutral, because placing an order is a moment rather than a phase.
+ * An ordinal ramp: one hue, brightening monotonically, so position in the journey
+ * is carried by lightness alone and survives greyscale and colour-vision
+ * deficiency. It brightens rather than darkens because the interface ground is
+ * near-black — a darkening ramp vanished into it. Level 0 is neutral, because
+ * placing an order is a moment rather than a phase.
  */
 export const JOURNEY_HEX = [
-  '#585859', '#F0A181', '#E7875F', '#DD6C3A', '#CE520B', '#B24504', '#973801', '#7C2D01', '#632201',
+  '#949496', '#9C5228', '#AE5C2B', '#C0672F', '#D07434', '#DE8543', '#E89C60', '#F0B183', '#F5C6A3',
 ] as const
 
 export type LevelState = 'done' | 'active' | 'pending'
