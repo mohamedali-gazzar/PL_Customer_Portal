@@ -45,28 +45,32 @@ export function ProjectFilters({
     <div className="filters">
       <div className="filt">
         <label htmlFor="year-filter">Order year</label>
-        <select id="year-filter" value={year} onChange={(e) => onYearChange(e.target.value)}>
-          <option value="all">All projects</option>
-          {years.map((y) => (
-            <option key={y} value={y}>
-              {y}
-            </option>
-          ))}
-        </select>
+        <span className="sel">
+          <select id="year-filter" value={year} onChange={(e) => onYearChange(e.target.value)}>
+            <option value="all">All projects</option>
+            {years.map((y) => (
+              <option key={y} value={y}>
+                {y}
+              </option>
+            ))}
+          </select>
+        </span>
       </div>
 
       <div className="filt">
         <label htmlFor="wo-filter">Work order</label>
-        <select id="wo-filter" value={wo} onChange={(e) => onWoChange(e.target.value as WoFilter)}>
-          <option value="all">Any status</option>
-          {WO_STATUSES.map((st) => (
-            // A status nothing is in is still listed, disabled — its absence is
-            // information, and a vanishing option looks like a bug.
-            <option key={st.key} value={st.key} disabled={counts[st.key] === 0}>
-              {`${st.label} (${counts[st.key]})`}
-            </option>
-          ))}
-        </select>
+        <span className="sel">
+          <select id="wo-filter" value={wo} onChange={(e) => onWoChange(e.target.value as WoFilter)}>
+            <option value="all">Any status</option>
+            {WO_STATUSES.map((st) => (
+              // A status nothing is in is still listed, disabled — its absence is
+              // information, and a vanishing option looks like a bug.
+              <option key={st.key} value={st.key} disabled={counts[st.key] === 0}>
+                {`${st.label} (${counts[st.key]})`}
+              </option>
+            ))}
+          </select>
+        </span>
       </div>
 
       <span className="yf-count">

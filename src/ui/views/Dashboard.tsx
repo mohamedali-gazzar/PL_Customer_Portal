@@ -12,10 +12,10 @@
 
 import { useMemo } from 'react'
 import type { ScopedSnapshot } from '@/portal/types'
-import { arw, egp, fd, Pill, s } from '../lib/format'
+import { arw, fd, Pill, s } from '../lib/format'
 import { byYear, indexItems, itemsOf, orderYears, sum } from '../lib/select'
 import { byWoStatus, type WoFilter } from '../lib/wo-status'
-import { Tiles } from '../components/Tiles'
+import { Kpis } from '../components/Kpis'
 import { ProjectCard } from '../components/ProjectCard'
 import { ProjectFilters } from '../components/ProjectFilters'
 
@@ -41,8 +41,11 @@ export function Dashboard({
 
   const contract = sum(orders, (o) => o.contract)
   const backlog = sum(orders, (o) => o.backlog)
+  const delivered = sum(orders, (o) => o.dvalue)
+  const panels = sum(orders, (o) => o.qty)
+  const panelsDelivered = sum(orders, (o) => o.deliv)
   const late = orders.filter((o) => o.late).length
-  const scope = year === 'all' ? 'across all projects' : `ordered in ${year}`
+  const scope = year === 'all' ? 'All projects' : `Ordered in ${year}`
 
   return (
     <>
@@ -60,15 +63,13 @@ export function Dashboard({
         )}
       </div>
 
-      <Tiles
-        tiles={[
-          { lab: 'Total contract value', val: egp(contract), sub: scope },
-          {
-            lab: 'Total open backlog',
-            val: egp(backlog),
-            sub: contract ? `${((100 * backlog) / contract).toFixed(1)}% of contract value` : '—',
-          },
-        ]}
+      <Kpis
+        contract={contract}
+        delivered={delivered}
+        backlog={backlog}
+        scope={scope}
+        panels={panels}
+        panelsDelivered={panelsDelivered}
       />
 
       <div className="sec-row">
