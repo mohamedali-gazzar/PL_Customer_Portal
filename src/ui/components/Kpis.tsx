@@ -22,6 +22,8 @@
  * reachable without occupying a line.
  */
 
+import type { ReactNode } from 'react'
+
 import { egp, full } from '../lib/format'
 import { useTip, TipHead, TipRow } from '../lib/tooltip'
 import { useT } from '../lib/i18n'
@@ -30,11 +32,24 @@ export function Kpis({
   contract,
   backlog,
   scope,
+  contractNote,
+  backlogNote,
 }: {
   contract: number
   backlog: number
-  /** What the figures cover, e.g. "All projects". Surfaced on hover. */
-  scope: string
+  /**
+   * What the figures cover, e.g. "All projects" or one project's name. Surfaced on
+   * hover. A node rather than a string so an Arabic name arrives already isolated
+   * for bidi, which a name sitting beside Latin punctuation needs.
+   */
+  scope: ReactNode
+  /**
+   * Optional extra detail for the hover panel — on one project, how many panels
+   * each figure covers. A label and a value rather than a sentence, so the count
+   * sits beside its noun instead of inside it.
+   */
+  contractNote?: { label: string; value: string }
+  backlogNote?: { label: string; value: string }
 }) {
   const bind = useTip()
   const t = useT()
@@ -48,6 +63,7 @@ export function Kpis({
             <TipHead>{t('kpi.contract')}</TipHead>
             <TipRow label={t('kpi.exact')} value={full(contract)} />
             <TipRow label={t('kpi.scope')} value={scope} />
+            {contractNote ? <TipRow label={contractNote.label} value={contractNote.value} /> : null}
           </>,
         )}
       >
@@ -62,6 +78,7 @@ export function Kpis({
             <TipHead>{t('kpi.backlog')}</TipHead>
             <TipRow label={t('kpi.exact')} value={full(backlog)} />
             <TipRow label={t('kpi.scope')} value={scope} />
+            {backlogNote ? <TipRow label={backlogNote.label} value={backlogNote.value} /> : null}
           </>,
         )}
       >

@@ -55,6 +55,8 @@ const MESSAGES = {
     'kpi.orderedIn': 'Ordered in {year}',
     'kpi.exact': 'Exact',
     'kpi.scope': 'Scope',
+    'kpi.panelsOrdered': 'Panels ordered',
+    'kpi.panelsRemaining': 'Panels remaining',
 
     'filter.orderYear': 'Order year',
     'filter.allProjects': 'All projects',
@@ -96,8 +98,6 @@ const MESSAGES = {
     'proj.pm': 'PM: {name}',
     'proj.complete': '{n}% complete',
     'proj.within': 'Within contractual date',
-    'proj.panelsOrdered': '{n} panels ordered',
-    'proj.panelsRemaining': '{n} panels remaining',
     'proj.itemDetail': 'Item detail',
     'proj.timeline': 'Item milestone timeline',
 
@@ -144,6 +144,8 @@ const MESSAGES = {
     'kpi.orderedIn': 'الأوامر في {year}',
     'kpi.exact': 'القيمة بالتفصيل',
     'kpi.scope': 'النطاق',
+    'kpi.panelsOrdered': 'اللوحات المطلوبة',
+    'kpi.panelsRemaining': 'اللوحات المتبقية',
 
     'filter.orderYear': 'سنة الأمر',
     'filter.allProjects': 'جميع المشروعات',
@@ -185,8 +187,6 @@ const MESSAGES = {
     'proj.pm': 'مدير المشروع: {name}',
     'proj.complete': 'مكتمل {n}%',
     'proj.within': 'داخل التاريخ التعاقدي',
-    'proj.panelsOrdered': '{n} لوحة مطلوبة',
-    'proj.panelsRemaining': '{n} لوحة متبقية',
     'proj.itemDetail': 'تفاصيل البنود',
     'proj.timeline': 'الجدول الزمني لمراحل البنود',
 

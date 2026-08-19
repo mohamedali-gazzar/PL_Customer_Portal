@@ -15,8 +15,8 @@ import { arw, egp, fd, full, int, Pill } from '../lib/format'
 import { useT, type Translate } from '../lib/i18n'
 import { byYear, indexItems, itemsOf, orderYears } from '../lib/select'
 import { byWoStatus, type WoFilter } from '../lib/wo-status'
+import { Kpis } from '../components/Kpis'
 import { ProjectFilters } from '../components/ProjectFilters'
-import { Tiles } from '../components/Tiles'
 import { ProjectList } from '../components/ProjectList'
 import { Timeline } from '../components/Timeline'
 
@@ -77,19 +77,15 @@ export function Projects({
           </div>
         </div>
 
-        <Tiles
-          tiles={[
-            {
-              lab: t('kpi.contract'),
-              val: egp(order.contract),
-              sub: t('proj.panelsOrdered', { n: order.qty }),
-            },
-            {
-              lab: t('kpi.backlog'),
-              val: egp(order.backlog),
-              sub: t('proj.panelsRemaining', { n: order.qty - order.deliv }),
-            },
-          ]}
+        <Kpis
+          contract={order.contract}
+          backlog={order.backlog}
+          scope={arw(order.proj)}
+          contractNote={{ label: t('kpi.panelsOrdered'), value: int(order.qty) }}
+          backlogNote={{
+            label: t('kpi.panelsRemaining'),
+            value: int(order.qty - order.deliv),
+          }}
         />
 
         <div className="sec">{t('proj.itemDetail')}</div>
