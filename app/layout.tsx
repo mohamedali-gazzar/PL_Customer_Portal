@@ -2,7 +2,7 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Powerline — Customer Project Portal',
+  title: 'Powerline Customer Portal',
   description:
     'Live visibility into every panel Powerline builds for you — drawing approval, ' +
     'material readiness, manufacturing, quality, delivery and your financial position.',
