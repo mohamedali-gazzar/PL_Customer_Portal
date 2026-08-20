@@ -978,10 +978,18 @@ td .ar,.trunc .ar{display:inline}
 @media(max-width:860px){
   .top-in{height:auto;padding:9px 14px;flex-wrap:wrap;gap:9px}
   .logo{font-size:13px} .logo small{display:none}
-  nav.main{order:3;width:100%;margin-left:0;overflow-x:auto;padding-bottom:1px;
-    scrollbar-width:none;-webkit-overflow-scrolling:touch}
-  nav.main::-webkit-scrollbar{display:none}
-  nav.main button{padding:7px 11px;white-space:nowrap}
+  /* Two rows of two, not one row that scrolls.
+     Four tabs carrying two SOON chips measure 434px, and a 375px screen offers
+     347px. Scrolling put the second half of the Documents chip past the edge with
+     nothing to say it was there — a clipped tab reads as a broken tab, not as an
+     invitation to swipe. Shrinking to fit was measured and does not work: even at
+     5px padding with 7.5px chips and 11.5px labels the row lands at exactly 347px,
+     with nothing left for a 360px phone and no margin anywhere.
+     So the row splits. Every tab and both chips are visible without interaction,
+     and each becomes a half-width target instead of a 73px one. */
+  nav.main{order:3;width:100%;margin-left:0;display:grid;
+    grid-template-columns:1fr 1fr;gap:3px;overflow:visible}
+  nav.main button{justify-content:center;padding:0 10px;white-space:nowrap}
   nav.main button.on::after{bottom:-1px}
   /* The identity takes its own row. An Egyptian company's registered name does not
      fit beside the logo on a phone, and clipping it to 110px left the customer
