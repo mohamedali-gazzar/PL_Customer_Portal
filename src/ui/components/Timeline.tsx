@@ -191,46 +191,11 @@ export function Timeline({
 
   const todayX = geom.X(today)
 
-  /* -- month scale --------------------------------------------------------- */
-  const months: Date[] = []
-  {
-    const first = new Date(window_.lo)
-    let m = Date.UTC(first.getUTCFullYear(), first.getUTCMonth(), 1)
-    while (m < window_.hi) {
-      if (m >= window_.lo) months.push(new Date(m))
-      const d = new Date(m)
-      m = Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 1)
-    }
-  }
-  const step = Math.max(1, Math.ceil(months.length / Math.max(2, Math.floor(laneWidth / 62))))
-  const MON = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
-
   return (
-    <div className="card">
+    // Not a card any more: with the shared month scale gone there is no chrome
+    // left for the outer card to hold, and the items carry their own.
+    <div className="card tl-card">
       <div className="tl-wrap">
-        <div className="tl-scale">
-          {months.map((d, i) => {
-            if (i % step) return null
-            const p = geom.X(d.toISOString().slice(0, 10))
-            if (p < 0 || p > 100) return null
-            if (Math.abs(p - todayX) < 3.4) return null // never collide with TODAY
-            const label = MON[d.getUTCMonth()] + (d.getUTCMonth() === 0 || i === 0 ? ` '${String(d.getUTCFullYear()).slice(2)}` : '')
-            const transform = px(p) < 26 ? 'translateX(-4px)' : px(100 - p) < 26 ? 'translateX(-96%)' : undefined
-            return (
-              <span key={d.toISOString()}>
-                <div className="tkline" style={{ left: `${p}%` }} />
-                <div className="tk" style={{ left: `${p}%`, transform }}>
-                  {label}
-                </div>
-              </span>
-            )
-          })}
-          <div className="today-tk" style={{ left: `${todayX}%` }}>
-            TODAY
-          </div>
-          <div className="tkline" style={{ left: `${todayX}%` }} />
-        </div>
-
         {items.map((item, row) => (
           <ItemTrack
             key={item.id}

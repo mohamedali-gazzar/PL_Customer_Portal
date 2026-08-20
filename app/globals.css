@@ -634,7 +634,12 @@ table.t td.r,table.t th.r{text-align:right}
 .trunc{max-width:250px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block}
 
 /* ============================================================ TIMELINE == */
-.tl-wrap{padding:16px 18px 6px}
+/* The timeline is a stack of item cards rather than one panel of hairline-ruled
+   rows. A 1px rule between two blocks this tall stopped reading as a boundary —
+   each item carries nine level cards of its own, and the eye needs a surface
+   change, not a line, to tell where one panel ends. */
+.tl-card{background:none;border:none;border-radius:0;box-shadow:none}
+.tl-wrap{padding:0;display:flex;flex-direction:column;gap:14px}
 
 /* plain-language guide + replay control */
 .tl-help{display:flex;gap:14px;align-items:flex-start;flex-wrap:wrap;
@@ -677,9 +682,8 @@ table.t td.r,table.t th.r{text-align:right}
 /* grid: name | lane tags | bars — no overlap, ever */
 
 /* ---- per-panel card: header, full-width process strip, then the time bars ---- */
-.tl-item{border-bottom:1px solid var(--line);padding:18px 0 20px}
-.tl-item:last-of-type{border-bottom:none}
-.tl-item:hover{background:transparent}
+.tl-item{background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-xl);box-shadow:var(--sh-sm);padding:18px 18px 20px}
 .ti-head{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:2px}
 .ti-head .id{font-size:var(--fs-h3);font-weight:var(--fw-bold);letter-spacing:-.01em;
   font-family:var(--font-head);color:var(--ink)}
@@ -796,16 +800,6 @@ table.t td.r,table.t th.r{text-align:right}
 @media(prefers-reduced-motion:reduce){
   .tband,.tover,.tcap,.tband.live::after{animation:none!important}}
 
-/* The gutter that catches label spill is split evenly rather than parked on the
-   right. It was 60px of right margin against nothing on the left, which left the
-   axis visibly off-centre in its card — and spill happens at both ends anyway:
-   the first date sits at 0% and "today" at 100%. Same total reserved, so the plot
-   is exactly as wide as before; it just sits in the middle of the card now. */
-.tl-scale{position:relative;height:20px;margin-inline:30px;
-  border-bottom:1px solid var(--line)}
-.tl-scale .tk{position:absolute;top:0;font-size:10px;color:var(--faint);
-  transform:translateX(-50%);white-space:nowrap}
-.tl-scale .tkline{position:absolute;top:0;bottom:0;width:1px;background:var(--line)}
 .tl-row{display:flex;align-items:stretch;border-bottom:1px solid var(--line);position:relative}
 .tl-row:hover{background:var(--raised)}
 
@@ -869,9 +863,6 @@ table.t td.r,table.t th.r{text-align:right}
 
 .tl-today{position:absolute;top:-10px;bottom:-10px;width:0;
   border-left:1.5px dashed rgba(255,255,255,.42);z-index:6;pointer-events:none}
-.tl-scale .today-tk{position:absolute;top:0;transform:translateX(-50%);font-size:8.5px;
-  font-weight:var(--fw-bold);letter-spacing:var(--tr-label);color:var(--ink);
-  background:var(--surface);padding:0 5px;white-space:nowrap}
 .tl-cursor{position:absolute;top:-10px;bottom:-10px;width:2px;background:var(--brand);
   z-index:14;pointer-events:none;display:none;border-radius:2px}
 .tl-cursor::before{content:"";position:absolute;top:6px;left:-3px;width:8px;height:8px;
@@ -1027,14 +1018,15 @@ td .ar,.trunc .ar{display:inline}
   #q{min-width:0!important}
   .pcard .foot{grid-template-columns:repeat(2,1fr);gap:11px}
   .hbar{grid-template-columns:92px 1fr 50px;gap:8px;font-size:11px}
-  .tl-scale{margin-inline:23px}
   .tl-lanes{padding-inline:23px}
   .stp{font-size:7.5px;height:14px}
   .tl-now{font-size:10px}
   .tl-name .c{font-size:11.5px} .tl-name .d{font-size:10px}
   .scrollx table.t{min-width:640px}
   .fn .lb{font-size:8px;height:38px}
-  .chart,.tl-wrap{padding-left:13px;padding-right:13px}
+  .chart{padding-left:13px;padding-right:13px}
+  .tl-wrap{gap:11px}
+  .tl-item{padding:15px 13px 17px;border-radius:var(--r-lg)}
 }
 
 
@@ -1201,7 +1193,7 @@ table.t tfoot tr.total td{font-weight:var(--fw-bold);background:var(--sunken);co
 
 /* The timeline is a measured axis, so it stays left-to-right in both languages.
    Its own labels still resolve their script individually. */
-[dir="rtl"] .trk,[dir="rtl"] .tl-scale,[dir="rtl"] .tl-plot,
+[dir="rtl"] .trk,[dir="rtl"] .tl-plot,
 [dir="rtl"] .journey,[dir="rtl"] .funnel,[dir="rtl"] .stack{direction:ltr}
 [dir="rtl"] .num,[dir="rtl"] .mono{direction:ltr;unicode-bidi:embed}
 
