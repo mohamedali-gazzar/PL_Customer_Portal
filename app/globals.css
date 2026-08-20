@@ -358,7 +358,10 @@ h1,h2,h3,.gw-h1,.tile .val,.pcard .ttl,.gw-stat b{font-family:var(--font-head)}
 /* The header no longer announces itself as a different surface from the page —
    it is the same ground with a hairline under it, so sign-in, shell and content
    read as one continuous sheet. */
-header.top{background:var(--ground);color:var(--ink);position:sticky;top:0;z-index:40;
+/* Above every scrolling element on the page, below the three things that are
+   meant to cover it: the sign-in screen (100), the boot screen (110) and the
+   tooltip (200). */
+header.top{background:var(--ground);color:var(--ink);position:sticky;top:0;z-index:90;
   border-bottom:1px solid var(--line)}
 .top-in{max-width:1440px;margin:0 auto;padding:0 32px;height:64px;display:flex;align-items:center;gap:34px}
 .logo{display:flex;align-items:center;gap:28px;flex:none}   /* gap = clear space (§05) */
@@ -682,7 +685,12 @@ table.t td.r,table.t th.r{text-align:right}
 /* grid: name | lane tags | bars — no overlap, ever */
 
 /* ---- per-panel card: header, full-width process strip, then the time bars ---- */
-.tl-item{background:var(--surface);border:1px solid var(--line);
+/* `position:relative;z-index:0` is load-bearing, not decoration: it makes each
+   item its own stacking context. The strip inside stacks its bands, labels, caps
+   and markers against each other with values up to 70, which are meaningful only
+   within one strip — without a context of their own they were resolved against
+   the root and painted straight over the sticky header on scroll. */
+.tl-item{position:relative;z-index:0;background:var(--surface);border:1px solid var(--line);
   border-radius:var(--r-xl);box-shadow:var(--sh-sm);padding:18px 18px 20px}
 .ti-head{display:flex;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:2px}
 .ti-head .id{font-size:var(--fs-h3);font-weight:var(--fw-bold);letter-spacing:-.01em;
