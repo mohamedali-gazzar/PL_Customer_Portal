@@ -796,7 +796,12 @@ table.t td.r,table.t th.r{text-align:right}
 @media(prefers-reduced-motion:reduce){
   .tband,.tover,.tcap,.tband.live::after{animation:none!important}}
 
-.tl-scale{position:relative;height:20px;margin-left:0;margin-right:60px;
+/* The gutter that catches label spill is split evenly rather than parked on the
+   right. It was 60px of right margin against nothing on the left, which left the
+   axis visibly off-centre in its card — and spill happens at both ends anyway:
+   the first date sits at 0% and "today" at 100%. Same total reserved, so the plot
+   is exactly as wide as before; it just sits in the middle of the card now. */
+.tl-scale{position:relative;height:20px;margin-inline:30px;
   border-bottom:1px solid var(--line)}
 .tl-scale .tk{position:absolute;top:0;font-size:10px;color:var(--faint);
   transform:translateX(-50%);white-space:nowrap}
@@ -828,9 +833,9 @@ table.t td.r,table.t th.r{text-align:right}
 
 
 
-.tl-lanes{flex:1;position:relative;padding:6px 60px 6px 0;min-width:0;display:flex;
+.tl-lanes{flex:1;position:relative;padding:6px 30px;min-width:0;display:flex;
   flex-direction:column;justify-content:center}
-.tl-plot{position:relative;width:100%}   /* labels may spill into the 60px gutter */
+.tl-plot{position:relative;width:100%}   /* labels may spill into the 30px gutters */
 .tl-clip{position:relative;width:100%}
 .lane{position:relative;height:16px;margin-bottom:5px}
 .lane:last-child{margin-bottom:0}
@@ -1022,8 +1027,8 @@ td .ar,.trunc .ar{display:inline}
   #q{min-width:0!important}
   .pcard .foot{grid-template-columns:repeat(2,1fr);gap:11px}
   .hbar{grid-template-columns:92px 1fr 50px;gap:8px;font-size:11px}
-  .tl-scale{margin-right:46px}
-  .tl-lanes{padding-right:46px}
+  .tl-scale{margin-inline:23px}
+  .tl-lanes{padding-inline:23px}
   .stp{font-size:7.5px;height:14px}
   .tl-now{font-size:10px}
   .tl-name .c{font-size:11.5px} .tl-name .d{font-size:10px}
