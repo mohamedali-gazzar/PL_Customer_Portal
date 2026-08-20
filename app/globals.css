@@ -1191,12 +1191,34 @@ table.t tfoot tr.total td{font-weight:var(--fw-bold);background:var(--sunken);co
 .prefs button:focus-visible{outline:none;box-shadow:0 0 0 2px var(--ground),0 0 0 4px var(--brand)}
 
 @media(max-width:900px){
-  /* The header already wraps at this width, so both controls stay — hiding the
-     theme control would remove the choice rather than adapt it, and a phone is
-     exactly where someone switches to dark. They grow to a 44px target instead. */
-  .prefs-group{order:2}
-  .prefs button{width:38px;height:40px}
-  .prefs button.lang{min-width:44px;padding:0 12px}
+  /* Both controls stay — hiding the theme control would remove the choice rather
+     than adapt it, and a phone is exactly where someone switches to dark.
+
+     They were grown to a 44px target here, which made the pair 224px wide: too
+     wide to sit beside the logo, so they wrapped onto a row of their own and left
+     dead space to the right of both. At 30px they fit on the logo row, which
+     removes a row from a header that was 194px tall on a 375px screen. 30px clears
+     the 24px minimum target (WCAG 2.5.8) but not the 44px enhanced one — the
+     trade a secondary, set-once control can make and a primary action cannot.
+
+     `margin-inline-start` rather than `margin-left`: it flips with the direction
+     on its own, so the gap stays between the logo and the controls in Arabic
+     instead of having to be mirrored in the RTL block below. */
+  .prefs-group{order:1;margin-inline-start:auto;gap:7px}
+  .prefs button{width:30px;height:30px}
+  .prefs button svg{width:15px;height:15px}
+  .prefs button.lang{min-width:36px;padding:0 9px}
+}
+
+@media(max-width:360px){
+  /* One more step down on the narrowest phones still in use. At 30px the pair is
+     183px, and 120px of logo plus that overflows a 320px row — they wrap, and the
+     auto margin then strands them at the far edge of a row of their own, which is
+     the same dead space the other way round. Two pixels per button buys the row. */
+  .prefs-group{gap:6px}
+  .prefs button{width:26px;height:28px}
+  .prefs button svg{width:14px;height:14px}
+  .prefs button.lang{min-width:30px;padding:0 7px}
 }
 
 /* A figure, a currency code and a document number are not prose: they read
