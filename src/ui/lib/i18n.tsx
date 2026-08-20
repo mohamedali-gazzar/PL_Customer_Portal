@@ -44,9 +44,6 @@ const MESSAGES = {
     'shell.themeDark': 'Dark',
 
     'dash.welcome': 'Welcome back',
-    'dash.asAt': 'data as at {date}',
-    'dash.allWithin': 'All orders within contractual date',
-    'dash.pastDue': '{n} order(s) past contractual date',
     'dash.yourProjects': 'Your projects',
 
     'kpi.contract': 'Total contract value',
@@ -133,9 +130,6 @@ const MESSAGES = {
     'shell.themeDark': 'داكن',
 
     'dash.welcome': 'مرحبًا بعودتك',
-    'dash.asAt': 'البيانات حتى {date}',
-    'dash.allWithin': 'جميع الأوامر داخل التاريخ التعاقدي',
-    'dash.pastDue': '{n} أمر تجاوز التاريخ التعاقدي',
     'dash.yourProjects': 'مشروعاتك',
 
     'kpi.contract': 'إجمالي قيمة التعاقد',

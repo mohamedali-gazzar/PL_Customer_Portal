@@ -5,14 +5,16 @@
  *
  * Two figures, because those are the two a customer opens the portal to check:
  * what the work is worth, and how much of it is still outstanding. Everything
- * else — what is late, what is waiting on them — is carried by the project cards,
- * where it sits next to the project it concerns rather than as a number they then
- * have to go and locate.
+ * else — what is late, what is waiting on them — is carried by the project rows,
+ * where it sits next to the project it concerns rather than as a count they then
+ * have to go and act on.
+ *
+ * That is why there is no roll-up line here. A greeting, the two figures, then
+ * the work.
  */
 
 import { useMemo } from 'react'
 import type { ScopedSnapshot } from '@/portal/types'
-import { arw, fd, Pill } from '../lib/format'
 import { useT } from '../lib/i18n'
 import { byYear, indexItems, itemsOf, orderYears, sum } from '../lib/select'
 import { byWoStatus, type WoFilter } from '../lib/wo-status'
@@ -43,23 +45,12 @@ export function Dashboard({
 
   const contract = sum(orders, (o) => o.contract)
   const backlog = sum(orders, (o) => o.backlog)
-  const late = orders.filter((o) => o.late).length
   const scope = year === 'all' ? t('kpi.allProjects') : t('kpi.orderedIn', { year })
 
   return (
     <>
       <div className="pgh">
-        <div>
-          <h1 className="pt">{t('dash.welcome')}</h1>
-          <p className="psub">
-            {arw(data.customer.name)} · {t('dash.asAt', { date: fd(data.meta.exportDate) })}
-          </p>
-        </div>
-        {late ? (
-          <Pill kind="bad">{t('dash.pastDue', { n: late })}</Pill>
-        ) : (
-          <Pill kind="ok">{t('dash.allWithin')}</Pill>
-        )}
+        <h1 className="pt">{t('dash.welcome')}</h1>
       </div>
 
       <Kpis contract={contract} backlog={backlog} scope={scope} />

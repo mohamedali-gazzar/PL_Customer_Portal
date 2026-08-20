@@ -257,11 +257,6 @@ function ItemTrack({
         </div>
         <div className="rt">
           {item.hold ? <Pill kind="warn">On hold</Pill> : null}
-          {item.late ? (
-            <Pill kind="bad">{`${Math.abs(item.dtc ?? 0)} days past contractual date`}</Pill>
-          ) : item.dtc !== null ? (
-            <Pill kind="ok">{`${item.dtc} days to contractual date`}</Pill>
-          ) : null}
           <span className="ti-pct">
             <span className="tr">
               <i style={{ width: `${item.pct}%` }} />
