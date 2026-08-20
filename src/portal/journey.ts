@@ -54,6 +54,25 @@ export interface JourneyLevel {
   readonly what: string
 }
 
+/**
+ * What levels 1–5 say while they are still open.
+ *
+ * Four of the five reuse the T-phase name, because the phase name and the
+ * customer-facing status are the same sentence. Drawing approval is the exception:
+ * "With you for approval" describes where the drawing is sitting, which is the
+ * business's view of it. From the customer's side the useful fact is that nothing
+ * downstream can start until they act, so the level says that instead. The T2
+ * phase name is left alone — the timeline ribbon and the PM console still measure
+ * the phase under its own name.
+ */
+const OPEN_STATUS = [
+  PHASES[0]!.n,
+  'Waiting for approval to proceed',
+  PHASES[2]!.n,
+  PHASES[3]!.n,
+  PHASES[4]!.n,
+] as const
+
 const DAY = 86_400_000
 const at = (iso: string) => Date.parse(`${iso}T00:00:00Z`)
 const span = (a: string | null, b: string | null): number | null =>
@@ -105,7 +124,7 @@ export function journeyOf(item: PortalItem, today: string): JourneyLevel[] {
       done: Boolean(on(k + 1)),
       from: on(k),
       to: on(k + 1),
-      status: on(k + 1) ? 'Complete' : on(k) ? PHASES[k]!.n : 'Not started',
+      status: on(k + 1) ? 'Complete' : on(k) ? OPEN_STATUS[k]! : 'Not started',
       planned: k === 3 ? item.st[1]![4] : k === 4 ? item.st[2]![4] : null,
     })),
     // 6 — Quality check. No rework raised on a finished panel means nothing needed

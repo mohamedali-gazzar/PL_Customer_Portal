@@ -17,7 +17,7 @@ import type { PillKind } from './format'
  *
  *   on hold        nothing is moving, and that outranks how late it is
  *   past date      the schedule has slipped and they need to know
- *   action needed  a drawing is sitting with them, and only they can clear it
+ *   pending appr.  a drawing is sitting with them, and only they can clear it
  *   on track       nothing to report
  */
 export const PROJECT_STATUSES = [

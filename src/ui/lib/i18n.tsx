@@ -74,7 +74,7 @@ const MESSAGES = {
 
     'status.hold': 'On hold',
     'status.late': 'Past contractual date',
-    'status.action': 'Action needed',
+    'status.action': 'Pending approval',
     'status.ontrack': 'On track',
 
     'list.project': 'Project',
@@ -163,7 +163,7 @@ const MESSAGES = {
 
     'status.hold': 'موقوف',
     'status.late': 'تجاوز التاريخ التعاقدي',
-    'status.action': 'يتطلب إجراءً منك',
+    'status.action': 'في انتظار موافقتك',
     'status.ontrack': 'يسير كما هو مخطط',
 
     'list.project': 'المشروع',
