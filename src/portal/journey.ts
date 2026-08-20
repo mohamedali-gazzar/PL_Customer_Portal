@@ -55,23 +55,20 @@ export interface JourneyLevel {
 }
 
 /**
- * What levels 1–5 say while they are still open.
+ * The one level that is waiting on the customer rather than on us.
  *
- * Four of the five reuse the T-phase name, because the phase name and the
- * customer-facing status are the same sentence. Drawing approval is the exception:
- * "With you for approval" describes where the drawing is sitting, which is the
- * business's view of it. From the customer's side the useful fact is that nothing
- * downstream can start until they act, so the level says that instead. The T2
- * phase name is left alone — the timeline ribbon and the PM console still measure
- * the phase under its own name.
+ * It gets its own title and tag, and only while it is the level being waited on.
+ * The name cannot simply be replaced: the same card renders for a level that is
+ * finished or not yet reached, and "Waiting for approval to proceed" over
+ * "Complete" would contradict itself. So the ladder keeps the neutral name and
+ * this wording appears exactly when it is true.
+ *
+ * The T2 phase name is untouched either way — the timeline ribbon and the PM
+ * console still measure the phase under their own name.
  */
-const OPEN_STATUS = [
-  PHASES[0]!.n,
-  'Waiting for approval to proceed',
-  PHASES[2]!.n,
-  PHASES[3]!.n,
-  PHASES[4]!.n,
-] as const
+const APPROVAL_LEVEL = 2
+const APPROVAL_WAITING_TITLE = 'Waiting for approval to proceed'
+const APPROVAL_WAITING_TAG = 'Pending Approval'
 
 const DAY = 86_400_000
 const at = (iso: string) => Date.parse(`${iso}T00:00:00Z`)
@@ -124,7 +121,7 @@ export function journeyOf(item: PortalItem, today: string): JourneyLevel[] {
       done: Boolean(on(k + 1)),
       from: on(k),
       to: on(k + 1),
-      status: on(k + 1) ? 'Complete' : on(k) ? OPEN_STATUS[k]! : 'Not started',
+      status: on(k + 1) ? 'Complete' : on(k) ? PHASES[k]!.n : 'Not started',
       planned: k === 3 ? item.st[1]![4] : k === 4 ? item.st[2]![4] : null,
     })),
     // 6 — Quality check. No rework raised on a finished panel means nothing needed
@@ -196,11 +193,12 @@ export function journeyOf(item: PortalItem, today: string): JourneyLevel[] {
     // A finished level reports how long it took; the one in progress reports how
     // long it has been running, which is the number a customer is chasing.
     const days = implied[i] ? null : r.done ? span(r.from, r.to) : state === 'active' ? span(r.from, today) : null
+    const waitingOnYou = i === APPROVAL_LEVEL && state === 'active' && !implied[i]
     return {
       n: i,
-      label: JOURNEY_LABELS[i]!,
+      label: waitingOnYou ? APPROVAL_WAITING_TITLE : JOURNEY_LABELS[i]!,
       state,
-      status: implied[i] ? 'Not recorded' : r.status,
+      status: implied[i] ? 'Not recorded' : waitingOnYou ? APPROVAL_WAITING_TAG : r.status,
       from: implied[i] ? null : r.from,
       to: implied[i] ? null : r.to,
       days,

@@ -81,8 +81,28 @@ test('a finished level reports how long it took; the live one how long it has ru
   assert.equal(j[1]!.days, 10, 'took ten days')
 
   const live = j.find((l) => l.state === 'active')!
-  assert.equal(live.label, 'Drawing approval')
+  assert.equal(live.label, 'Waiting for approval to proceed')
   assert.equal(live.days, 212, 'open since 11 Jan against a 11 Aug as-of date')
+})
+
+test('the approval level is titled "waiting" only while it is the one waiting', () => {
+  // Waiting on the customer: the card says what is needed, not where the paper is.
+  const open = journeyOf(panel({ chain: ['2026-01-01', '2026-01-11'] }), TODAY)
+  assert.equal(open[2]!.state, 'active')
+  assert.equal(open[2]!.label, 'Waiting for approval to proceed')
+  assert.equal(open[2]!.status, 'Pending Approval')
+
+  // Already approved. The neutral ladder name has to come back, or the same card
+  // reads "Waiting for approval to proceed — Complete" and contradicts itself.
+  const past = journeyOf(panel({ chain: ['2026-01-01', '2026-01-11', '2026-01-20'] }), TODAY)
+  assert.equal(past[2]!.state, 'done')
+  assert.equal(past[2]!.label, JOURNEY_LABELS[2])
+  assert.equal(past[2]!.status, 'Complete')
+
+  // Not reached yet: nothing is being waited on, so the same applies.
+  const ahead = journeyOf(panel({ chain: ['2026-01-01'] }), TODAY)
+  assert.equal(ahead[2]!.state, 'pending')
+  assert.equal(ahead[2]!.label, JOURNEY_LABELS[2])
 })
 
 test('no rework on a manufactured panel is a pass, not a missing step', () => {
