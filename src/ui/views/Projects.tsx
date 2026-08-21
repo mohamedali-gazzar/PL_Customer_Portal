@@ -16,6 +16,7 @@ import { useT, type Translate } from '../lib/i18n'
 import { byYear, indexItems, itemsOf, orderYears } from '../lib/select'
 import { byWoStatus, type WoFilter } from '../lib/wo-status'
 import { Kpis } from '../components/Kpis'
+import { PmContact } from '../components/PmContact'
 import { ProjectFilters } from '../components/ProjectFilters'
 import { ProjectList } from '../components/ProjectList'
 import { Timeline } from '../components/Timeline'
@@ -62,8 +63,7 @@ export function Projects({
               {t('proj.contractualDelivery', {
                 date: order.cDate ? fd(order.cDate) : t('proj.notSet'),
               })}
-              {order.cPeriod ? ` ${t('proj.dayPeriod', { n: order.cPeriod })}` : ''} ·{' '}
-              {t('proj.pm', { name: order.pm ?? '—' })}
+              {order.cPeriod ? ` ${t('proj.dayPeriod', { n: order.cPeriod })}` : ''}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '7px' }}>
@@ -77,16 +77,22 @@ export function Projects({
           </div>
         </div>
 
-        <Kpis
-          contract={order.contract}
-          backlog={order.backlog}
-          scope={arw(order.proj)}
-          contractNote={{ label: t('kpi.panelsOrdered'), value: int(order.qty) }}
-          backlogNote={{
-            label: t('kpi.panelsRemaining'),
-            value: int(order.qty - order.deliv),
-          }}
-        />
+        {/* The two figures and the person, on one row: the figures are capped at
+            300px each and left the rest of the width empty, and who to call is the
+            third thing worth knowing before the item table. */}
+        <div className="sumrow">
+          <Kpis
+            contract={order.contract}
+            backlog={order.backlog}
+            scope={arw(order.proj)}
+            contractNote={{ label: t('kpi.panelsOrdered'), value: int(order.qty) }}
+            backlogNote={{
+              label: t('kpi.panelsRemaining'),
+              value: int(order.qty - order.deliv),
+            }}
+          />
+          <PmContact pm={order.pm} />
+        </div>
 
         <div className="sec">{t('proj.itemDetail')}</div>
         <ItemTable items={items} t={t} />

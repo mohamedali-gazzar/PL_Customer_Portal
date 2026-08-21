@@ -703,6 +703,70 @@ table.t td.r,table.t th.r{text-align:right}
 .ti-pct .tr i{display:block;height:100%;background:var(--brand);border-radius:100px;
   transform-origin:left;animation:growW .7s cubic-bezier(.2,.7,.3,1)}
 
+/* ---- who to talk to about this order ----
+   A block, not another fact appended to the project's meta line. It sits between
+   the two figures and the item table because that is the order of the questions:
+   what the order is worth, who is running it, what is in it.
+
+   Built from devices already in the app rather than new ones — the header's orange
+   initials disc, which is how this interface draws a person, and the card surface
+   that carries a project row and a timeline item. The disc is what stops it reading
+   as a third KPI card: the two above it are figures, this one is somebody. */
+/* One row: the two capped figures, then the person filling the width they left. */
+.sumrow{display:flex;align-items:stretch;gap:14px;flex-wrap:wrap}
+.sumrow .kpis{flex:none}
+.sumrow .pmb{flex:1;min-width:330px;margin-top:0}
+
+.pmb{display:flex;align-items:center;gap:14px;margin-top:14px;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-xl);
+  box-shadow:var(--sh-sm);padding:14px 18px}
+/* --brand-ink, not --brand: white on #F16722 is 3.13:1, and these initials are
+   13px, which is not large text. #C44A05 takes it to 4.85:1 and is already the
+   token behind every white-on-orange surface here — the sign-in button, the
+   active nav tab. */
+.pmb-av{width:38px;height:38px;border-radius:50%;background:var(--brand-ink);color:#fff;
+  display:grid;place-items:center;flex:none;font-family:var(--font-head);
+  font-size:13px;font-weight:var(--fw-bold);letter-spacing:.02em;
+  box-shadow:inset 0 0 0 1px rgba(255,255,255,.18)}
+.pmb-id{display:flex;flex-direction:column;min-width:0}
+.pmb-lab{font-size:var(--fs-micro);text-transform:uppercase;letter-spacing:var(--tr-label);
+  color:var(--muted);font-weight:var(--fw-semi);margin-bottom:3px}
+.pmb-name{font-size:var(--fs-h3);font-weight:var(--fw-semi);color:var(--ink);
+  line-height:1.3;letter-spacing:-.005em}
+.pmb-title{font-size:var(--fs-note);color:var(--muted);line-height:1.45;margin-top:1px}
+.pmb-mgr{font-size:var(--fs-note);color:var(--muted);line-height:1.45;margin-top:2px;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pmb-mgr b{font-weight:var(--fw-semi);color:var(--ink3)}
+
+/* Pushed to the far end, and mirrored by the logical property rather than a
+   second rule in the RTL block. */
+/* Stacked, not side by side: sharing this block's width the address had to be
+   clipped, and an address you cannot read is not a contact. */
+.pmb-acts{display:flex;flex-direction:column;align-items:stretch;gap:7px;
+  margin-inline-start:auto;min-width:0;flex:none}
+.pmb-act{display:inline-flex;align-items:center;gap:7px;min-width:0;
+  font-size:var(--fs-note);color:var(--ink2);border:1px solid var(--line-strong);
+  border-radius:var(--r);padding:7px 12px;background:var(--sunken);
+  transition:color var(--dur) var(--ease),border-color var(--dur) var(--ease),
+    background var(--dur) var(--ease)}
+.pmb-act:hover{color:var(--brand-text);border-color:var(--brand-line);background:var(--raised)}
+.pmb-act:focus-visible{outline:none;box-shadow:0 0 0 2px var(--ground),0 0 0 4px var(--brand)}
+.pmb-act svg{width:14px;height:14px;flex:none;color:var(--faint)}
+.pmb-act:hover svg{color:var(--brand-text)}
+.pmb-act span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@media(max-width:860px){
+  /* The person on one row, the two ways to reach them on the next. Sharing a
+     402px row leaves each action ~184px, and the address is 35 characters — it
+     was clipped to something tappable but unreadable. */
+  .sumrow .kpis{flex:1 1 100%}
+  .sumrow .pmb{min-width:0}
+  .pmb{flex-wrap:wrap;padding:13px 14px;gap:12px}
+  .pmb-acts{width:100%;margin-inline-start:0;flex-direction:column;
+    align-items:stretch;gap:7px}
+  .pmb-act{justify-content:flex-start}
+}
+
 /* the 7-stage process strip — the whole journey, in words and dates */
 .journey{display:grid;grid-template-columns:repeat(9,1fr);gap:5px;margin:13px 0 15px}
 .jst{position:relative;border:1px solid var(--line);border-radius:var(--r);
