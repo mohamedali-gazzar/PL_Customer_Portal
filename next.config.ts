@@ -33,8 +33,16 @@ const nextConfig: NextConfig = {
  * Separating the directories ends it. Dev owns `.next`, everything else owns
  * `.next-build`, and a build can now run at any time without touching a live
  * server. `next start` reads the build output, so it belongs on the build side.
+ *
+ * Only on a developer's machine, though. CI has no dev server to protect, and
+ * Vercel looks for the output by name: it reads `.next/routes-manifest.json`
+ * once the build finishes and fails the deployment if it is not there. So the
+ * split is switched off wherever there is nothing to collide with, and a
+ * deployment builds exactly where it always did.
  */
+const onCI = !!process.env.CI || !!process.env.VERCEL
+
 export default (phase: string): NextConfig => ({
   ...nextConfig,
-  distDir: phase === PHASE_DEVELOPMENT_SERVER ? '.next' : '.next-build',
+  distDir: phase === PHASE_DEVELOPMENT_SERVER || onCI ? '.next' : '.next-build',
 })
