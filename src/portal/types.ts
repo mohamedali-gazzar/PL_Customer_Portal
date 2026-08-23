@@ -104,9 +104,84 @@ export interface PortalItem {
   /** First stage that is not `done` — the one the order is really waiting on. */
   readonly nextStage: string
   readonly nextStatus: string
+
+  /* ── the report's own verdict ──────────────────────────────────────────────
+     These come straight from the export's `Current *` columns. The rule that
+     produces them lives in SQL and is owned by the ERP team; the portal reads it
+     rather than keeping a second copy that would drift. Spec, Delta 3. */
+
+  /** `Current Stage #`, 0–11. Portal milestone is this plus one. */
+  readonly stage: number
+  /** `Current Step`, already mapped to the portal's wording. */
+  readonly step: string | null
+  /** `Step Code`. Sort key; 90 is rework, and it sits between 13 and 14. */
+  /**
+   * `Step Code` — the report's stable identifier for the current step.
+   *
+   * Not the same as `Current Step #`: the two agree everywhere except a
+   * modification, which the report numbers 9 like Production In-progress but
+   * codes 90. Matching the step by its displayed text cannot tell those apart,
+   * which is why the code is what the portal keys on.
+   */
+  readonly stepCode: number | null
+  /** `Stage Since` — the "From" date on the active milestone. */
+  readonly since: string | null
+  /** `Days In Current Stage` — the running counter, no longer calculated here. */
+  readonly dis: number | null
+
+  /**
+   * How many main work orders back this line.
+   *
+   * Above one, the dates are a blend of several panels and can overstate progress,
+   * so the UI softens the wording. Spec §9.2.
+   */
+  readonly mainWos: number
+
+  /**
+   * Completion date per rendered step, in the order `STAGES` declares them.
+   *
+   * `null` means the report carries no date for that step. That is not "not
+   * done" — the ladder decides that — it is "not recorded", and the card says so.
+   */
+  readonly sd: readonly (string | null)[]
 }
 
 /** One sales order, rolled up from its item lines. */
+/**
+ * What a customer's browser actually receives for one line.
+ *
+ * `PortalItem` is the internal model and carries more than any screen needs: a
+ * derived unit rate, the raw rework work-order status, the nine-timestamp chain
+ * and the T1–T8 durations that feed the PM console's benchmarks, and the retired
+ * `nextStage` / `nextStatus` pair.
+ *
+ * None of it is rendered, but all of it used to be serialised — and "not rendered"
+ * is not "not sent". This type is the wire contract, so anything absent here cannot
+ * reach the browser however the UI is later changed. Removing a field from it makes
+ * every consumer a compile error rather than a silent blank.
+ */
+export type CustomerItem = Omit<
+  PortalItem,
+  | 'rate'
+  | 'rwStatus'
+  | 'nextStage'
+  | 'nextStatus'
+  | 'ch'
+  | 'T'
+  | 'woQty'
+  | 'prodQty'
+  | 'nIA'
+  | 'nRel'
+  | 'age'
+  | 'remain'
+>
+
+/** The fields dropped on the way out, named once so the test can assert on them. */
+export const CUSTOMER_ITEM_OMITTED = [
+  'rate', 'rwStatus', 'nextStage', 'nextStatus', 'ch', 'T',
+  'woQty', 'prodQty', 'nIA', 'nRel', 'age', 'remain',
+] as const
+
 export interface PortalOrder {
   readonly so: string
   readonly proj: string
@@ -133,6 +208,21 @@ export interface PortalOrder {
   /** 1 when a drawing is sitting with the customer for approval. */
   readonly await: number
 }
+
+/**
+ * What a customer's browser receives for one order.
+ *
+ * The order roll-up carried two fields no screen reads. `age` is a cycle-time
+ * metric for Powerline's own benchmarking. `next` is the least-advanced line's
+ * status, which for an order sitting at a stage the export cannot feed spelled out
+ * the ERP document behind it — the order-level twin of the wording already stripped
+ * from `st[]`, and the reason a payload scan is worth running over the real data
+ * rather than over the type.
+ */
+export type CustomerOrder = Omit<PortalOrder, 'age' | 'next'>
+
+/** Dropped on the way out, named once so the check can assert on them. */
+export const CUSTOMER_ORDER_OMITTED = ['age', 'next'] as const
 
 /** One customer company, rolled up from its orders. */
 export interface PortalCustomer {
@@ -209,7 +299,7 @@ export interface CustomerMeta {
  */
 export interface ScopedSnapshot {
   readonly meta: CustomerMeta
-  readonly items: readonly PortalItem[]
-  readonly orders: readonly PortalOrder[]
+  readonly items: readonly CustomerItem[]
+  readonly orders: readonly CustomerOrder[]
   readonly customer: PortalCustomer
 }

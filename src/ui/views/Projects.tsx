@@ -8,41 +8,71 @@
  */
 
 import { useMemo } from 'react'
-import type { PortalItem, ScopedSnapshot } from '@/portal/types'
+import type { CustomerItem, ScopedSnapshot } from '@/portal/types'
 import { STATE } from '@/portal/types'
 import { STAGE_NAMES } from '@/portal/constants'
-import { arw, egp, fd, full, int, Pill } from '../lib/format'
-import { useT, type Translate } from '../lib/i18n'
+import { deliveryState } from '@/portal/derive'
+import { STAGES, stagePosition, visibleStageOf } from '@/portal/milestones'
+import { journeyOf, materialKeyOf, statusKeyOf } from '@/portal/journey'
+import { arw, egp, useFd, full, int, Pill } from '../lib/format'
+import { useLabel, useT, type MessageKey, type Translate } from '../lib/i18n'
 import { byYear, indexItems, itemsOf, orderYears } from '../lib/select'
-import { byWoStatus, type WoFilter } from '../lib/wo-status'
 import { Kpis } from '../components/Kpis'
 import { PmContact } from '../components/PmContact'
 import { ProjectFilters } from '../components/ProjectFilters'
 import { ProjectList } from '../components/ProjectList'
-import { Timeline } from '../components/Timeline'
+
+/**
+ * Stage and step names, translated by key.
+ *
+ * The item table has to say the same words as the cards below it, so both go
+ * through the model's keys rather than either one holding its own copy.
+ */
+function useStageWords() {
+  const t = useT()
+  const say = useLabel()
+  return {
+    stageName: (stage: number) => {
+      const spec = STAGES[visibleStageOf(stage)]
+      return spec ? say(spec.nameKey, spec.name) : ''
+    },
+    //  arrives already mapped to the portal's English wording; the key comes
+    // from the same lookup the cards use, so the two cannot drift.
+    stepText: (step: string | null) => (step ? say(statusKeyOf(step), step) : null),
+    /* The material badge. The ERP's own three values are translated; anything
+       outside that set keeps the export's text so a new status is visible rather
+       than silently blank. */
+    matWord: (status: string | null | undefined) =>
+      status ? say(materialKeyOf(status), status) : t('table.noWorkOrder'),
+  }
+}
 
 export function Projects({
   data,
   so,
   year,
-  wo,
   onYearChange,
-  onWoChange,
   onOpenProject,
+  onOpenItem,
+  backLabel,
+  onBack,
 }: {
   data: ScopedSnapshot
   so: string | null
   year: string
-  wo: WoFilter
   onYearChange: (year: string) => void
-  onWoChange: (wo: WoFilter) => void
   onOpenProject: (so: string | null) => void
+  /** Opens one item's own page. */
+  onOpenItem?: (id: number) => void
+  /** Where the back link goes, named for the list the reader came from. */
+  backLabel?: MessageKey
+  onBack?: () => void
 }) {
+  const fd = useFd()
   const t = useT()
   const byId = useMemo(() => indexItems(data.items), [data.items])
   const years = useMemo(() => orderYears(data.orders), [data.orders])
-  const inYear = useMemo(() => byYear(data.orders, year), [data.orders, year])
-  const shown = useMemo(() => byWoStatus(inYear, byId, wo), [inYear, byId, wo])
+  const shown = useMemo(() => byYear(data.orders, year), [data.orders, year])
   const order = so ? data.orders.find((o) => o.so === so) ?? null : null
 
   if (order) {
@@ -50,7 +80,10 @@ export function Projects({
     return (
       <>
         <div className="crumb">
-          <button onClick={() => onOpenProject(null)}>Projects</button> <span>›</span>{' '}
+          <button onClick={() => (onBack ? onBack() : onOpenProject(null))}>
+            {t(backLabel ?? 'nav.overview')}
+          </button>{' '}
+          <span>›</span>{' '}
           <span>{order.so}</span>
         </div>
 
@@ -95,10 +128,9 @@ export function Projects({
         </div>
 
         <div className="sec">{t('proj.itemDetail')}</div>
-        <ItemTable items={items} t={t} />
-
-        <div className="sec">{t('proj.timeline')}</div>
-        <Timeline order={order} items={items} today={data.meta.exportDate} />
+        {/* An index, not a detail view. Each row opens the item's own page — the
+            page this one used to try to be for every line at once. */}
+        <ItemTable items={items} t={t} today={data.meta.exportDate} selected={null} onOpen={onOpenItem} />
       </>
     )
   }
@@ -113,15 +145,11 @@ export function Projects({
           </p>
         </div>
         <ProjectFilters
-          orders={inYear}
-          itemsById={byId}
           years={years}
           year={year}
-          wo={wo}
           showing={shown.length}
           total={data.orders.length}
           onYearChange={onYearChange}
-          onWoChange={onWoChange}
         />
       </div>
 
@@ -131,10 +159,7 @@ export function Projects({
             {t('filter.noMatch')}{' '}
             <button
               className="linkish"
-              onClick={() => {
-                onYearChange('all')
-                onWoChange('all')
-              }}
+              onClick={() => onYearChange('all')}
             >
               {t('filter.clear')}
             </button>
@@ -147,22 +172,66 @@ export function Projects({
   )
 }
 
-function ItemTable({ items, t }: { items: readonly PortalItem[]; t: Translate }) {
+/**
+ * The whole ladder as a row of marks.
+ *
+ * One block per stage this item actually shows, filled for done, brand for the one
+ * running, empty for the rest. It is the same information as the percentage beside
+ * it, but shaped — and a shape can be compared down a column of thirty rows in a
+ * way that "30%" and "15%" cannot.
+ *
+ * The trailing dot is delivery: the end of the road, drawn differently so the row
+ * has a visible finish rather than trailing off.
+ */
+function StageTrack({ item, today }: { item: CustomerItem; today: string }) {
+  const t = useT()
+  const stages = journeyOf(item, today)
+  const done = stages.filter((s) => s.state === 'done').length
+  return (
+    <span
+      className="strack"
+      role="img"
+      aria-label={t('table.stageTrackAria', { n: done, total: stages.length })}
+    >
+      {stages.map((st) => (
+        <i key={st.n} className={`strack-b ${st.state}`} />
+      ))}
+      <i className={`strack-end ${stages[stages.length - 1]?.state ?? 'pending'}`} />
+    </span>
+  )
+}
+
+function ItemTable({
+  items,
+  t,
+  today,
+  selected,
+  onOpen,
+}: {
+  items: readonly CustomerItem[]
+  t: Translate
+  today: string
+  selected: number | null
+  onOpen?: (id: number) => void
+}) {
+  const { stageName, stepText, matWord } = useStageWords()
   return (
     <div className="card scrollx">
       <table className="t">
         <thead>
           <tr>
+            {/* An index, so it carries what you need to find a row and nothing
+                more. Description repeated the item code in longer words and was the
+                column that truncated; work order is factory paperwork and an open
+                question for Powerline besides; delivered and contract value are
+                per-line detail the item's own page has room to show properly. */}
             <th className="lineno">#</th>
             <th>{t('table.item')}</th>
-            <th>{t('table.description')}</th>
             <th className="r">{t('table.qty')}</th>
-            <th className="r">{t('table.delivered')}</th>
-            <th>{t('table.workOrder')}</th>
             <th>{t('table.currentStage')}</th>
             <th>{t('table.material')}</th>
+            <th>{t('table.stageTrack')}</th>
             <th className="r">{t('table.progress')}</th>
-            <th className="r">{t('table.contractValue')}</th>
           </tr>
         </thead>
         <tbody>
@@ -178,7 +247,23 @@ function ItemTable({ items, t }: { items: readonly PortalItem[]; t: Translate })
                     ? 'bad'
                     : 'gap'
             return (
-              <tr key={it.id}>
+              /* The row is the control. A separate "view" button in a tenth
+                 column would be a second thing to aim at for the only action the
+                 row has. */
+              <tr
+                key={it.id}
+                className={it.id === selected ? 'pickable on' : 'pickable'}
+                onClick={() => onOpen?.(it.id)}
+                tabIndex={0}
+                role="button"
+                aria-current={it.id === selected}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onOpen?.(it.id)
+                  }
+                }}
+              >
                 <td className="lineno num">{line + 1}</td>
                 <td>
                   <b>{it.code}</b>
@@ -189,24 +274,35 @@ function ItemTable({ items, t }: { items: readonly PortalItem[]; t: Translate })
                     </>
                   ) : null}
                 </td>
-                <td>
-                  <span className="trunc">{it.name ?? ''}</span>
+                <td className="r num">
+                  {it.deliv > 0 ? `${it.deliv} / ${it.qty}` : it.qty}
+                  {deliveryState(it.deliv, it.qty) === 'partial' ? (
+                    <>
+                      {' '}
+                      <Pill kind="warn">{t('table.partial')}</Pill>
+                    </>
+                  ) : null}
                 </td>
-                <td className="r num">{it.qty}</td>
-                <td className="r num">{it.deliv}</td>
-                <td className="mono">{it.wo ?? '—'}</td>
                 <td>
-                  {`${cur + 1}. ${STAGE_NAMES[cur]}`}
+                  {`${stagePosition(it.stage, it.rework > 0)}. ${stageName(it.stage)}`}
                   <br />
-                  <span style={{ color: 'var(--muted)', fontSize: '11.5px' }}>{it.st[cur]![1]}</span>
+                  <span style={{ color: 'var(--muted)', fontSize: '11.5px' }}>
+                    {stepText(it.step) ?? t('table.notStarted')}
+                  </span>
                 </td>
                 <td>
-                  <Pill kind={materialKind}>{it.matStatus ?? t('table.noWorkOrder')}</Pill>
+                  <Pill kind={materialKind}>{matWord(it.matStatus)}</Pill>
+                </td>
+                {/* Eleven stages as eleven marks. The stage name says where the
+                    item is; this says how much of the road is behind it, which is
+                    the thing you actually compare between rows — and a shape reads
+                    down a column faster than a sentence does. */}
+                <td>
+                  <StageTrack item={it} today={today} />
                 </td>
                 <td className="r">
                   <b className="num">{it.pct}%</b>
                 </td>
-                <td className="r num">{it.contract !== null ? int(it.contract) : '—'}</td>
               </tr>
             )
           })}

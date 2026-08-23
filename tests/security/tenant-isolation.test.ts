@@ -34,6 +34,9 @@ function item(id: number, so: string, cust: string, code: string): PortalItem {
          stage('Ready for delivery'),
          [STATE.gap, 'Awaiting Sales Invoice feed', null, null, null]],
     nextStage: 'Pre-Delivery Payment', nextStatus: 'Awaiting Payment Entry feed',
+    stage: 4, step: 'Material checked', stepCode: 7,
+    since: '2026-02-01', dis: 12, mainWos: 1,
+    sd: Array.from({ length: 16 }, () => null),
   }
 }
 

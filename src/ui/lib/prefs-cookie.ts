@@ -23,6 +23,18 @@
 
 export type ThemeChoice = 'system' | 'light' | 'dark'
 export type Locale = 'en' | 'ar'
+/**
+ * How the sidebar behaves.
+ *
+ *   open   — always expanded, labels visible
+ *   rail   — always collapsed to icons
+ *   hover  — collapsed, expanding over the page while the pointer is on it
+ *
+ * Three states rather than a toggle because the third is the one people actually
+ * want and cannot express with two: keep my screen wide, but let me read the
+ * labels without committing a click.
+ */
+export type SidebarMode = 'open' | 'rail' | 'hover'
 
 export const PREFS_COOKIE = 'pl_prefs'
 
@@ -31,20 +43,22 @@ export const PREFS_MAX_AGE = 60 * 60 * 24 * 365
 
 export const THEMES: readonly ThemeChoice[] = ['system', 'light', 'dark']
 export const LOCALES: readonly Locale[] = ['en', 'ar']
+export const SIDEBARS: readonly SidebarMode[] = ['open', 'rail', 'hover']
 
 export interface StoredPrefs {
   theme: ThemeChoice
   locale: Locale
+  sidebar: SidebarMode
 }
 
 /**
  * "System" is the default and a real choice: someone who set their laptop to dark
  * at 9pm should not have to tell this portal about it as well.
  */
-export const DEFAULT_PREFS: StoredPrefs = { theme: 'system', locale: 'en' }
+export const DEFAULT_PREFS: StoredPrefs = { theme: 'system', locale: 'en', sidebar: 'open' }
 
 /**
- * The cookie is `<theme>.<locale>` — two known tokens.
+ * The cookie is `<theme>.<locale>.<sidebar>` — three known tokens.
  *
  * Every unrecognised shape falls back to the default rather than throwing: this
  * value arrives from the browser, so a truncated cookie, an older format or a
@@ -55,6 +69,9 @@ export function parsePrefs(raw: string | undefined | null): StoredPrefs {
   const parts = (raw ?? '').split('.')
   const theme = parts[0] ?? ''
   const locale = parts[1] ?? ''
+  // Absent on every cookie written before the sidebar had a mode, which is why
+  // each token is validated on its own rather than the string as a whole.
+  const sidebar = parts[2] ?? ''
   return {
     theme: (THEMES as readonly string[]).includes(theme)
       ? (theme as ThemeChoice)
@@ -62,11 +79,14 @@ export function parsePrefs(raw: string | undefined | null): StoredPrefs {
     locale: (LOCALES as readonly string[]).includes(locale)
       ? (locale as Locale)
       : DEFAULT_PREFS.locale,
+    sidebar: (SIDEBARS as readonly string[]).includes(sidebar)
+      ? (sidebar as SidebarMode)
+      : DEFAULT_PREFS.sidebar,
   }
 }
 
 export function serializePrefs(p: StoredPrefs): string {
-  return `${p.theme}.${p.locale}`
+  return `${p.theme}.${p.locale}.${p.sidebar}`
 }
 
 /** What a stored choice resolves to, given what the OS says. */

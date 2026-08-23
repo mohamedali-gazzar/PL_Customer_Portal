@@ -7,7 +7,14 @@
  */
 
 import ExcelJS from 'exceljs'
-import { COLUMNS, COLUMN_KEYS, EXPECTED_COLUMN_COUNT, SHEET_NAME, type ColumnKey } from './columns'
+import {
+  COLUMNS,
+  COLUMN_KEYS,
+  OPEN_SHAPE,
+  SHEET_NAME,
+  type ColumnKey,
+  type ReportShape,
+} from './columns'
 
 /** One spreadsheet row, cells coerced to primitives, nothing interpreted. */
 export type RawBacklogRow = Readonly<Record<ColumnKey, string | number | Date | null>> & {
@@ -18,6 +25,7 @@ export interface ParseResult {
   readonly rows: readonly RawBacklogRow[]
   readonly sheetName: string
   readonly headerWarnings: readonly string[]
+  readonly shape: ReportShape['name']
 }
 
 export class ExcelShapeError extends Error {
@@ -57,7 +65,10 @@ export function cellToPrimitive(value: unknown): string | number | Date | null {
   return null
 }
 
-export async function parseBacklogWorkbook(filePath: string): Promise<ParseResult> {
+export async function parseBacklogWorkbook(
+  filePath: string,
+  shape: ReportShape = OPEN_SHAPE,
+): Promise<ParseResult> {
   const workbook = new ExcelJS.Workbook()
   try {
     await workbook.xlsx.readFile(filePath)
@@ -79,7 +90,7 @@ export async function parseBacklogWorkbook(filePath: string): Promise<ParseResul
     header[col - 1] = v === null ? '' : String(v)
   })
 
-  const { indexByKey, warnings } = mapHeader(header)
+  const { indexByKey, warnings } = mapHeader(header, shape)
 
   const rows: RawBacklogRow[] = []
   const lastRow = sheet.rowCount
@@ -97,7 +108,7 @@ export async function parseBacklogWorkbook(filePath: string): Promise<ParseResul
     if (hasValue) rows.push(record as RawBacklogRow)
   }
 
-  return { rows, sheetName: sheet.name, headerWarnings: warnings }
+  return { rows, sheetName: sheet.name, headerWarnings: warnings, shape: shape.name }
 }
 
 /**
@@ -106,7 +117,10 @@ export async function parseBacklogWorkbook(filePath: string): Promise<ParseResul
  * A missing column is fatal. An unexpected extra column is a warning: the report
  * gaining a column does not break existing mappings, but somebody should look.
  */
-function mapHeader(header: readonly string[]): {
+function mapHeader(
+  header: readonly string[],
+  shape: ReportShape,
+): {
   indexByKey: Partial<Record<ColumnKey, number>>
   warnings: string[]
 } {
@@ -114,7 +128,9 @@ function mapHeader(header: readonly string[]): {
   const indexByKey: Partial<Record<ColumnKey, number>> = {}
   const missing: string[] = []
 
-  for (const key of COLUMN_KEYS) {
+  // Only what this report is expected to supply. A key outside the shape stays
+  // unmapped and reads as null on every row — the column is absent, not empty.
+  for (const key of shape.keys) {
     const expected = COLUMNS[key]
     const index = normalized.findIndex((h) => h.toLowerCase() === expected.toLowerCase())
     if (index === -1) missing.push(expected)
@@ -123,17 +139,19 @@ function mapHeader(header: readonly string[]): {
 
   if (missing.length > 0) {
     throw new ExcelShapeError(
-      `The backlog export is missing ${missing.length} expected column(s): ${missing.join(', ')}.\n` +
-        `Found ${normalized.filter(Boolean).length} columns, expected ${EXPECTED_COLUMN_COUNT}.\n` +
+      `The ${shape.name} export is missing ${missing.length} expected column(s): ${missing.join(', ')}.\n` +
+        `Found ${normalized.filter(Boolean).length} columns, expected at least ${shape.keys.length}.\n` +
         `Either the report changed or the wrong file was supplied. Refusing to load rather than ` +
         `render blank milestones that would read as "nothing has happened".`,
     )
   }
 
-  const known = new Set(Object.values(COLUMNS).map((c) => c.toLowerCase()))
+  // Columns the portal does not read are reported once each, so a reviewer can see
+  // what the export carries that the portal ignores — invoices and payments chiefly.
+  const known = new Set(shape.keys.map((k) => COLUMNS[k].toLowerCase()))
   const warnings = normalized
     .filter((h) => h !== '' && !known.has(h.toLowerCase()))
-    .map((h) => `Unmapped column in export, ignored: "${h}"`)
+    .map((h) => `Unmapped column in ${shape.name} export, ignored: "${h}"`)
 
   return { indexByKey, warnings }
 }

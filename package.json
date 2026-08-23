@@ -24,6 +24,7 @@
     "build:snapshot": "node --import ./tools/alias-loader.mjs scripts/build-snapshot.ts",
     "test": "node --import ./tools/alias-loader.mjs --test tests/**/*.test.ts",
     "verify": "node --import ./tools/alias-loader.mjs scripts/verify.ts",
+    "provenance": "node --import ./tools/alias-loader.mjs scripts/provenance.ts",
     "check": "npm run typecheck && npm run test"
   },
   "dependencies": {

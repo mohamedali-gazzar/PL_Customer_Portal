@@ -106,6 +106,9 @@ export const STATUS = {
   reworkComplete: 'Final quality adjustments complete',
 
   readyForDelivery: 'Ready for delivery',
+  notDelivered: 'Not delivered',
+  partiallyDelivered: 'Partially delivered',
+  delivered: 'Delivered',
 
   awaitingPaymentFeed: 'Awaiting Payment Entry feed',
   awaitingInvoiceFeed: 'Awaiting Sales Invoice feed',

@@ -22,6 +22,7 @@ import assert from 'node:assert/strict'
 import {
   deriveExportDate,
   deriveItem,
+  deliveryState,
   deriveOrders,
   deriveSnapshot,
   phaseDurations,
@@ -268,14 +269,6 @@ test('rework is reported neutrally, and never names a reason', () => {
   assert.equal(none.st[3]![1], 'Ready for FAT')
 })
 
-test('a partial delivery says how much, in the quantities the order used', () => {
-  const it = deriveItem(
-    0,
-    row({ ...ordered, soQty: 2, deliveredQty: 1, remainingQty: 1, backlogAmount: 500 }),
-  )
-  assert.equal(it.st[5]![1], 'Partially delivered (1 of 2)')
-})
-
 test('stages with no source document report as unavailable, never as incomplete', () => {
   const it = deriveItem(0, row(ordered))
   assert.equal(it.st[4]![0], STATE.gap)
@@ -286,16 +279,14 @@ test('stages with no source document report as unavailable, never as incomplete'
 
 /* --------------------------------------------------------------- progress -- */
 
-test('progress averages only the stages that can be computed', () => {
-  // Counting the two unavailable stages as incomplete would cap every panel at 71%.
-  const untouched = deriveItem(0, row(ordered))
-  assert.equal(untouched.pct, 0)
+test('progress is the weight of the milestones the report says are finished', () => {
+  // Was: a flat mean over the computable stages, which read 10% for most of the
+  // portfolio. Now the report names the stage and each milestone carries a weight.
+  const untouched = deriveItem(0, row({ ...ordered, currentStageNo: 0 }))
+  assert.equal(untouched.pct, 0, 'nothing finished yet')
 
-  const approved = deriveItem(
-    0,
-    row({ ...ordered, releasedRfds: 1, relCreated: '2026-02-01', relSubmitted: '2026-02-05' }),
-  )
-  assert.equal(approved.pct, 20, 'one of five measurable stages done')
+  const approved = deriveItem(0, row({ ...ordered, currentStageNo: 2 }))
+  assert.equal(approved.pct, 15, 'order placed (5) and drawings prepared (10)')
 
   const built = deriveItem(
     0,
@@ -311,9 +302,10 @@ test('progress averages only the stages that can be computed', () => {
       mainCreated: '2026-02-06',
       mainMaterialReady: '2026-03-01',
       mainClosed: '2026-03-10',
+      currentStageNo: 7,
     }),
   )
-  assert.equal(built.pct, 80, 'three done, FAT and delivery ready')
+  assert.equal(built.pct, 75, 'through manufacturing, by weight')
 })
 
 test('lateness comes from the report own countdown', () => {
@@ -363,11 +355,19 @@ test('what an order waits for is set by its least advanced line', () => {
         mainCreated: '2026-02-06',
         mainMaterialReady: '2026-03-01',
         mainClosed: '2026-03-10',
+        currentStageNo: 7,
       }),
     ),
     deriveItem(
       1,
-      row({ ...ordered, initialApprovalRfds: 1, iaCreated: '2026-02-01', iaSubmitted: '2026-02-03' }),
+      row({
+        ...ordered,
+        initialApprovalRfds: 1,
+        iaCreated: '2026-02-01',
+        iaSubmitted: '2026-02-03',
+        currentStageNo: 1,
+        currentStep: 'Sent for Approval',
+      }),
     ),
   ])
   const order = orders[0]!
@@ -399,4 +399,68 @@ test('the p90 is a value that actually occurred, not an interpolation', () => {
   assert.equal(bench.p90, 90)
   assert.equal(bench.med, 55)
   assert.equal(bench.max, 100)
+})
+
+/* ------------------------------------------------------- partial delivery -- */
+
+/**
+ * The rule the export forces on us: `Delivered Qty` and `SO Qty` are the only two
+ * numbers that say how much has shipped. Before this, any non-zero delivered
+ * quantity produced "Partially delivered", so 130 fully shipped lines read
+ * "Partially delivered (1 of 1)" — a customer holding the goods being told they
+ * are half-shipped.
+ *
+ * The three boundaries below are the whole contract. They are tested through
+ * `deriveItem` rather than the helper alone, because the helper being right is not
+ * the same as the delivery stage being right.
+ */
+
+test('nothing shipped is not a partial delivery', () => {
+  const it = deriveItem(0, row({ ...ordered, soQty: 1, deliveredQty: 0, remainingQty: 1 }))
+  assert.equal(deliveryState(0, 1), 'none')
+  assert.ok(!it.st[5]![1].startsWith('Partially'), it.st[5]![1])
+  assert.notEqual(it.st[5]![0], STATE.done)
+})
+
+test('one of one is delivered, not partially delivered', () => {
+  // The regression this whole block exists for.
+  const it = deriveItem(0, row({ ...ordered, soQty: 1, deliveredQty: 1, remainingQty: 0, backlogAmount: 0 }))
+  assert.equal(deliveryState(1, 1), 'delivered')
+  assert.equal(it.st[5]![1], 'Delivered')
+  assert.equal(it.st[5]![0], STATE.done)
+})
+
+test('one of two is a partial delivery, and says which one of two', () => {
+  const it = deriveItem(0, row({ ...ordered, soQty: 2, deliveredQty: 1, remainingQty: 1, backlogAmount: 500 }))
+  assert.equal(deliveryState(1, 2), 'partial')
+  assert.equal(it.st[5]![1], 'Partially delivered (1 of 2)')
+})
+
+test('two of two is delivered', () => {
+  const it = deriveItem(0, row({ ...ordered, soQty: 2, deliveredQty: 2, remainingQty: 0, backlogAmount: 0 }))
+  assert.equal(deliveryState(2, 2), 'delivered')
+  assert.equal(it.st[5]![1], 'Delivered')
+})
+
+test('over-delivery lands on delivered rather than an impossible fraction', () => {
+  // Real exports do carry delivered > ordered, from a re-issued delivery note or a
+  // quantity corrected after shipping. "Delivered (3 of 2)" would be nonsense on a
+  // customer's screen, and treating it as partial would be worse: it would hold the
+  // line open forever.
+  const it = deriveItem(0, row({ ...ordered, soQty: 2, deliveredQty: 3, remainingQty: 0, backlogAmount: 0 }))
+  assert.equal(deliveryState(3, 2), 'delivered')
+  assert.equal(it.st[5]![1], 'Delivered')
+  assert.equal(it.st[5]![0], STATE.done)
+})
+
+test('a fractional shipment against a fractional order still reads as delivered', () => {
+  // Metres of busbar, not panels. 0.9 of 1 is partial; 1 of 1 is not.
+  assert.equal(deliveryState(0.9, 1), 'partial')
+  assert.equal(deliveryState(1, 1), 'delivered')
+})
+
+test('a shipment against a zero-quantity line is delivered, never partial', () => {
+  // Division by the ordered quantity would be undefined here. Something shipped and
+  // nothing is outstanding, so the line is closed rather than left mid-flight.
+  assert.equal(deliveryState(1, 0), 'delivered')
 })

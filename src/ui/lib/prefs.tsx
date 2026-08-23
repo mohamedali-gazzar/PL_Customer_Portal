@@ -31,11 +31,12 @@ import {
   resolveTheme,
   serializePrefs,
   type Locale,
+  type SidebarMode,
   type StoredPrefs,
   type ThemeChoice,
 } from './prefs-cookie'
 
-export type { Locale, ThemeChoice }
+export type { Locale, SidebarMode, ThemeChoice }
 
 interface Prefs {
   theme: ThemeChoice
@@ -50,8 +51,11 @@ interface Prefs {
   resolvedTheme: 'light' | 'dark'
   locale: Locale
   dir: 'ltr' | 'rtl'
+  /** How the sidebar behaves: always open, always a rail, or expanding on hover. */
+  sidebar: SidebarMode
   setTheme: (t: ThemeChoice) => void
   setLocale: (l: Locale) => void
+  setSidebar: (m: SidebarMode) => void
 }
 
 const PrefsContext = createContext<Prefs | null>(null)
@@ -90,6 +94,7 @@ export function PrefsProvider({
   const [theme, setThemeState] = useState<ThemeChoice>(start.theme)
   const [locale, setLocaleState] = useState<Locale>(start.locale)
   const [systemDark, setSystemDark] = useState<boolean>(systemPrefersDark)
+  const [sidebar, setSidebarState] = useState<SidebarMode>(start.sidebar)
 
   // Follow the OS while the choice is "system" — including a change made after the
   // page loaded, which is what someone toggling their laptop at dusk expects.
@@ -114,25 +119,33 @@ export function PrefsProvider({
     root.style.colorScheme = resolvedTheme
   }, [resolvedTheme, locale, dir])
 
+  const setSidebar = useCallback(
+    (m: SidebarMode) => {
+      setSidebarState(m)
+      writePrefs({ theme, locale, sidebar: m })
+    },
+    [theme, locale],
+  )
+
   const setTheme = useCallback(
     (t: ThemeChoice) => {
       setThemeState(t)
-      writePrefs({ theme: t, locale })
+      writePrefs({ theme: t, locale, sidebar })
     },
-    [locale],
+    [locale, sidebar],
   )
 
   const setLocale = useCallback(
     (l: Locale) => {
       setLocaleState(l)
-      writePrefs({ theme, locale: l })
+      writePrefs({ theme, locale: l, sidebar })
     },
-    [theme],
+    [theme, sidebar],
   )
 
   const value = useMemo<Prefs>(
-    () => ({ theme, resolvedTheme, locale, dir, setTheme, setLocale }),
-    [theme, resolvedTheme, locale, dir, setTheme, setLocale],
+    () => ({ theme, resolvedTheme, locale, dir, sidebar, setTheme, setLocale, setSidebar }),
+    [theme, resolvedTheme, locale, dir, sidebar, setTheme, setLocale, setSidebar],
   )
 
   return <PrefsContext.Provider value={value}>{children}</PrefsContext.Provider>

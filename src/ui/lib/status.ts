@@ -1,4 +1,4 @@
-import type { PortalOrder } from '@/portal/types'
+import type { CustomerOrder } from '@/portal/types'
 import type { PillKind } from './format'
 
 /**
@@ -37,7 +37,7 @@ export interface ProjectStatus {
   readonly kind: PillKind
 }
 
-export function projectStatus(order: PortalOrder): ProjectStatus {
+export function projectStatus(order: CustomerOrder): ProjectStatus {
   const key: ProjectStatusKey = order.hold
     ? 'hold'
     : order.late
@@ -48,13 +48,13 @@ export function projectStatus(order: PortalOrder): ProjectStatus {
   return PROJECT_STATUSES.find((s) => s.key === key)! as ProjectStatus
 }
 
-export function byStatus(orders: readonly PortalOrder[], status: StatusFilter): PortalOrder[] {
+export function byStatus(orders: readonly CustomerOrder[], status: StatusFilter): CustomerOrder[] {
   if (status === 'all') return [...orders]
   return orders.filter((o) => projectStatus(o).key === status)
 }
 
 /** How many projects sit in each status, for the filter's own labels. */
-export function statusCounts(orders: readonly PortalOrder[]): Record<ProjectStatusKey, number> {
+export function statusCounts(orders: readonly CustomerOrder[]): Record<ProjectStatusKey, number> {
   const counts = { hold: 0, late: 0, action: 0, ontrack: 0 }
   for (const o of orders) counts[projectStatus(o).key] += 1
   return counts

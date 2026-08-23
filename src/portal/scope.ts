@@ -15,13 +15,53 @@
  *     lines exist.
  */
 
+import { CUSTOMER_ITEM_OMITTED, CUSTOMER_ORDER_OMITTED, STATE } from './types'
 import type {
+  CustomerItem,
+  CustomerOrder,
+  Stage,
   PortalCustomer,
   PortalItem,
   PortalOrder,
   PortalSnapshot,
   ScopedSnapshot,
 } from './types'
+
+/**
+ * Strip the fields no customer screen reads.
+ *
+ * Driven by one list so the type and the runtime cannot disagree: `CustomerItem`
+ * omits exactly these names, and this deletes exactly these names.
+ */
+/** What a stage the export cannot feed says on the wire. Never rendered. */
+const UNAVAILABLE = 'Not available'
+
+function toCustomerItem(item: PortalItem, id: number): CustomerItem {
+  const out: Record<string, unknown> = { ...item, id }
+  for (const key of CUSTOMER_ITEM_OMITTED) delete out[key]
+
+  /* The two stages this export cannot feed carry their reason as text, naming the
+     ERP documents behind them. No customer screen reads either string, but both
+     were serialised on every line, which put the names of internal finance
+     documents into a payload the browser can open.
+
+     The tuple keeps its shape and its gap state, so every consumer behaves exactly
+     as before; only the wording is replaced. */
+  out.st = item.st.map((stage) =>
+    stage[0] === STATE.gap
+      ? ([stage[0], UNAVAILABLE, stage[2], stage[3], stage[4]] as Stage)
+      : stage,
+  )
+
+  return out as unknown as CustomerItem
+}
+
+/** The same strip at the order level. See `CustomerOrder`. */
+function toCustomerOrder(order: PortalOrder): CustomerOrder {
+  const out: Record<string, unknown> = { ...order }
+  for (const key of CUSTOMER_ORDER_OMITTED) delete out[key]
+  return out as unknown as CustomerOrder
+}
 
 /**
  * Everything the unauthenticated sign-in screen is given.
@@ -74,12 +114,12 @@ export function scopeToCustomer(snapshot: PortalSnapshot, customerName: string):
   const customer = snapshot.customers.find((c) => c.name === customerName)
   if (!customer) return null
 
-  const orders = snapshot.orders.filter((o) => o.cust === customerName)
+  const orders = snapshot.orders.filter((o) => o.cust === customerName).map(toCustomerOrder)
 
   // Renumber. Walk the orders rather than the global item list so the payload
   // cannot contain a line that no visible order refers to.
   const byId = new Map<number, PortalItem>(snapshot.items.map((i) => [i.id, i]))
-  const items: PortalItem[] = []
+  const items: CustomerItem[] = []
   const remap = new Map<number, number>()
 
   for (const order of orders) {
@@ -90,11 +130,11 @@ export function scopeToCustomer(snapshot: PortalSnapshot, customerName: string):
       // would be a data fault, and must not be served on the strength of the join.
       if (item.cust !== customerName) continue
       remap.set(sourceId, items.length)
-      items.push({ ...item, id: items.length })
+      items.push(toCustomerItem(item, items.length))
     }
   }
 
-  const scopedOrders: PortalOrder[] = orders.map((o) => ({
+  const scopedOrders: CustomerOrder[] = orders.map((o) => ({
     ...o,
     items: o.items.map((id) => remap.get(id)).filter((id): id is number => id !== undefined),
   }))

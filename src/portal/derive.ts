@@ -12,6 +12,8 @@
  */
 
 import type { RawBacklogRow } from '@/providers/excel/parse'
+import { STAGE_DELIVERY, stepWording, weightedProgress } from './milestones'
+import { isDnApproved } from '@/providers/excel/columns'
 import { PHASE_REPORT_NAMES, STAGE_NAMES, STATUS } from './constants'
 import type {
   NameCount,
@@ -138,6 +140,26 @@ type WoProgress = 'done' | 'active' | 'notstarted' | null
  * `Closed` counts as complete — ERPNext closes a work order that will not be
  * worked further, and the brief's rule table predates that status.
  */
+/**
+ * What a delivered quantity means, in one place.
+ *
+ * Previously any non-zero delivered quantity read "Partially delivered", which put
+ * "Partially delivered (1 of 1)" in front of 130 customers whose panels had shipped
+ * in full — a label that contradicts itself.
+ *
+ * Over-delivery is real in this data and is reported as delivered rather than as
+ * an anomaly. A customer who has received more than they ordered does not need the
+ * portal to argue with them about it; the discrepancy is a matter for the invoice.
+ */
+export type DeliveryState = 'none' | 'partial' | 'delivered'
+
+export function deliveryState(delivered: number, ordered: number): DeliveryState {
+  if (!(delivered > 0)) return 'none'
+  if (ordered > 0 && delivered >= ordered) return 'delivered'
+  if (!(ordered > 0)) return 'delivered' // nothing was ordered but something shipped
+  return 'partial'
+}
+
 export function workOrderProgress(raw: string | null): WoProgress {
   const parts = (raw ?? '')
     .split(',')
@@ -160,9 +182,21 @@ export function deriveItem(id: number, r: RawBacklogRow): PortalItem {
   const remain = num0(r.remainingQty)
   const backlog = num0(r.backlogAmount)
 
-  // The export gives a line's open value, not its unit price. One divides into
-  // the other exactly, so the rate is recovered rather than assumed.
-  const rate = remain ? backlog / remain : 0
+  /* The export gives a line's value, not its unit price, and which value depends
+     on which report the row came from. Open Backlog carries `Backlog Amount` over
+     the remaining quantity; Delivered carries `Delivered Amount` over the quantity
+     shipped, and no backlog column at all — a delivered line has no backlog.
+
+     One divides into the other exactly in both cases, so the rate is recovered
+     rather than assumed. Without the second branch every delivered line would
+     price at zero, and contract value would silently exclude everything that has
+     already shipped — the very error Delta 4 exists to fix. */
+  const deliveredAmount = num0(r.deliveredAmount)
+  const rate = remain
+    ? backlog / remain
+    : deliv && deliveredAmount
+      ? deliveredAmount / deliv
+      : 0
 
   const soDate = isoDate(r.soSubmitted)
   const cDate = isoDate(r.contractualDate)
@@ -260,12 +294,19 @@ export function deriveItem(id: number, r: RawBacklogRow): PortalItem {
   const stage5: Stage = [STATE.gap, STATUS.awaitingPaymentFeed, null, null, null]
 
   /* -- 6. Delivery readiness ------------------------------------------------- */
-  const stage6: Stage =
-    deliv > 0
-      ? [STATE.active, `Partially delivered (${qty(deliv)} of ${qty(soQty)})`, null, null, cDate]
-      : progress === 'done' && !reworkOpen
-        ? [STATE.active, STATUS.readyForDelivery, null, null, cDate]
-        : [STATE.none, STATUS.notReady, null, null, cDate]
+  const stage6: Stage = (() => {
+    const state = deliveryState(deliv, soQty)
+    if (state === 'delivered') {
+      return [STATE.done, STATUS.delivered, null, null, cDate] as Stage
+    }
+    if (state === 'partial') {
+      const label = `${STATUS.partiallyDelivered} (${qty(deliv)} of ${qty(soQty)})`
+      return [STATE.active, label, null, null, cDate] as Stage
+    }
+    return progress === 'done' && !reworkOpen
+      ? ([STATE.active, STATUS.readyForDelivery, null, null, cDate] as Stage)
+      : ([STATE.none, STATUS.notReady, null, null, cDate] as Stage)
+  })()
 
   /* -- 7. Financial clearance ------------------------------------------------ */
   const stage7: Stage = [STATE.gap, STATUS.awaitingInvoiceFeed, null, null, null]
@@ -286,6 +327,72 @@ export function deriveItem(id: number, r: RawBacklogRow): PortalItem {
 
   const cursor = st.findIndex((s) => s[0] !== STATE.done)
   const cur = cursor < 0 ? st.length - 1 : cursor
+
+  /* ── one date per step ────────────────────────────────────────────────────
+     Each step completes when one specific column stops being empty. The order
+     matches `STAGES`, which is the contract between this and the cards.
+
+     A null is "the report carries no date", not "not done": done-ness is decided
+     by the ladder. The Delivered export supplies far fewer of these columns than
+     the model document claims — see docs/SPEC-AUDIT.md §3.1 — and those rows lean
+     on exactly that distinction. */
+  const materialChecked = earliest(
+    isoDate(r.mainNotAvailableOn),
+    isoDate(r.mainPartiallyAvailableOn),
+    isoDate(r.mainAvailableOn),
+  )
+  const deliveredOn = isoDate(r.deliveredOn) ?? isoDate(r.deliveredDate)
+  const dnReady = isDnApproved(text(r.dnWorkflowState)) ? isoDate(r.dnCreatedOn) : null
+
+  /* Testing closes on whichever result landed first. v8: the step ends when
+     Testing Status is set to Touchup or Completed. A rejection is deliberately not
+     read here — v8: "do NOT show a rejection to the customer. It feeds stage 9." */
+  const testingDone = earliest(
+    isoDate(r.mainTestingTouchupOn),
+    isoDate(r.mainTestingCompletedOn),
+  )
+  const reworkDone = earliest(
+    isoDate(r.reworkTestingTouchupOn),
+    isoDate(r.reworkTestingCompletedOn),
+  )
+
+  /* The start and end of every v8 step, in `SLOT` order.
+     Two dates per step, because a card's state is read off both: end filled is
+     done, start alone is running, neither is not started. */
+  const sd: (string | null)[] = [
+    isoDate(r.soCreatedOn) ?? isoDate(r.soSubmitted), //  0 SO created (draft)
+    isoDate(r.soSubmitted),                           //  1 SO submitted
+    // v8 step 1 starts at the IA, or the revision when there is no IA.
+    isoDate(r.iaCreated) ?? isoDate(r.revCreated),    //  2 RFD created
+    isoDate(r.revSubmitted) ?? isoDate(r.iaSubmitted),//  3 RFD submitted
+    // v8 step 2 ends when the Released RFD is drafted; the approval date is the
+    // same event seen from the customer's side and stands in when it is missing.
+    isoDate(r.relCreated) ?? isoDate(r.relApproved),  //  4 Released RFD created
+    isoDate(r.relSubmitted),                          //  5 Released RFD submitted
+    isoDate(r.mainWoSubmittedOn),                     //  6 Work Order submitted
+    materialChecked,                                  //  7 Material status first set
+    // v8 reverted step 6's end to Available, with Material Ready as confirmation.
+    isoDate(r.mainAvailableOn) ?? isoDate(r.mainMaterialReady), // 8 Material available
+    isoDate(r.mainProductionStarted),                 //  9 Production started
+    isoDate(r.mainClosed),                            // 10 Work Order closed
+    isoDate(r.mainTestingStartedOn) ?? isoDate(r.mainClosed), // 11 Testing started
+    testingDone,                                      // 12 Testing concluded
+    isoDate(r.mainFatSuccess),                        // 13 FAT success
+    isoDate(r.reworkCreated),                         // 14 Modification raised
+    reworkDone ?? isoDate(r.reworkClosed),            // 15 Modification concluded
+    dnReady,                                          // 16 Delivery note drafted
+    deliveredOn,                                      // 17 Delivered
+  ]
+
+  /* ── the report's verdict, read rather than recomputed ─────────────────────
+     `Current Stage #` is absent from the Delivered export. That is not a gap to
+     guess at: a row in that file is fully delivered by the report's own filter
+     (`delivered_qty >= qty`), which is v8's Delivery. */
+  const fullyDelivered = deliveryState(deliv, soQty) === 'delivered'
+  const reportStage = num(r.currentStageNo)
+  const stage = reportStage ?? (fullyDelivered ? STAGE_DELIVERY : 0)
+  const step = stepWording(text(r.currentStep)) ?? (fullyDelivered ? 'Delivered' : null)
+  const pctWeighted = weightedProgress(stage, fullyDelivered)
 
   const dtc = num(r.daysToContractual)
 
@@ -337,10 +444,17 @@ export function deriveItem(id: number, r: RawBacklogRow): PortalItem {
     age: num(r.ageSinceSo),
     dtc,
     late: dtc !== null && dtc < 0 ? 1 : 0,
-    pct,
+    pct: pctWeighted,
     st,
     nextStage: STAGE_NAMES[cur]!,
     nextStatus: st[cur]![1],
+    stage,
+    step,
+    stepCode: num(r.stepCode),
+    since: isoDate(r.stageSince),
+    dis: num(r.daysInCurrentStage),
+    mainWos: Math.trunc(num0(r.mainWoCount)),
+    sd,
   }
   return item
 }

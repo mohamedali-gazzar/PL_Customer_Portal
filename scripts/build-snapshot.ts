@@ -3,7 +3,8 @@
  *
  *   npm run build:snapshot
  *
- * Reads `data/backlog.xlsx` — the real PM Phase Cycle Times export — and writes
+ * Reads both PM Phase Cycle Times exports — `data/backlog.xlsx` (Open Backlog) and
+ * `data/delivered.xlsx` (Delivered) — and writes
  * `content/portal-snapshot.json`, which ships with the application. That is what a
  * deployment serves until ERPNext is connected.
  *
@@ -21,9 +22,10 @@ import { mkdir, writeFile } from 'node:fs/promises'
 import { loadXlsxSnapshot } from '@/providers/xlsx'
 
 const source = process.env.EXCEL_BACKLOG_PATH ?? 'data/backlog.xlsx'
+const delivered = process.env.EXCEL_DELIVERED_PATH ?? 'data/delivered.xlsx'
 const target = 'content/portal-snapshot.json'
 
-const { snapshot, warnings } = await loadXlsxSnapshot(source)
+const { snapshot, warnings } = await loadXlsxSnapshot(source, delivered)
 for (const w of warnings) console.warn(`  warning: ${w}`)
 
 await mkdir('content', { recursive: true })

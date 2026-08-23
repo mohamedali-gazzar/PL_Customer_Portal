@@ -15,11 +15,11 @@
  * each either energised or not.
  */
 
-import type { PortalItem, PortalOrder } from '@/portal/types'
-import { STATE } from '@/portal/types'
-import { STAGE_NAMES } from '@/portal/constants'
-import { arw, egp, fd } from '../lib/format'
-import { useT, type MessageKey } from '../lib/i18n'
+import type { CustomerItem, CustomerOrder } from '@/portal/types'
+import { STAGES, visibleStageOf } from '@/portal/milestones'
+import { statusKeyOf } from '@/portal/journey'
+import { arw, egp, useFd } from '../lib/format'
+import { useLabel, useT, type MessageKey } from '../lib/i18n'
 import { projectStatus } from '../lib/status'
 import { indexItems, itemsOf } from '../lib/select'
 
@@ -34,14 +34,28 @@ const Chevron = () => (
  *
  * Taken from the least-advanced line, because an order is only as ready as its
  * slowest panel — reporting the furthest-along line would flatter the schedule.
+ *
+ * Both halves now come from the report: the milestone from `Current Stage #` and
+ * the wording from `Current Step`. The portal used to work this out from its own
+ * chain of timestamps, which meant two rules for one question. Spec, Delta 3.
  */
-export function nextOf(items: readonly PortalItem[]): { stage: string; status: string } | null {
+export function nextOf(
+  items: readonly CustomerItem[],
+): { stage: string; stageKey: string; status: string; statusKey: string } | null {
   const pending = items.filter((i) => i.pct < 100)
   if (pending.length === 0) return null
-  const slowest = pending.reduce((a, b) => (b.pct < a.pct ? b : a))
-  const stage = slowest.st.findIndex((x) => x[0] === STATE.none || x[0] === STATE.active)
-  if (stage < 0) return null
-  return { stage: STAGE_NAMES[stage]!, status: slowest.st[stage]![1] }
+  const slowest = pending.reduce((a, b) => (b.stage < a.stage ? b : a))
+  const spec = STAGES[visibleStageOf(slowest.stage)]
+  if (!spec) return null
+  const status = slowest.step ?? 'Not started'
+  // Keys as well as words: this line is the only place on the dashboard that names
+  // a stage, and it was reaching the Arabic screen in English.
+  return {
+    stage: spec.name,
+    stageKey: spec.nameKey,
+    status,
+    statusKey: slowest.step ? statusKeyOf(slowest.step) : 'table.notStarted',
+  }
 }
 
 export function ProjectList({
@@ -49,11 +63,13 @@ export function ProjectList({
   items,
   onOpen,
 }: {
-  orders: readonly PortalOrder[]
-  items: readonly PortalItem[]
+  orders: readonly CustomerOrder[]
+  items: readonly CustomerItem[]
   onOpen: (so: string) => void
 }) {
+  const fd = useFd()
   const t = useT()
+  const lbl = useLabel()
   const byId = indexItems(items)
 
   return (
@@ -92,7 +108,7 @@ export function ProjectList({
               <span className="pr-meta">
                 <span className="so">{order.so}</span>
                 <span className="sep" />
-                <span>{t('list.lines', { n: order.nItems })}</span>
+                <span>{t('list.items', { n: order.nItems })}</span>
                 <span className="sep" />
                 <span>{t('list.panels', { delivered: order.deliv, total: order.qty })}</span>
                 {order.pm ? (
@@ -107,7 +123,9 @@ export function ProjectList({
             <span className="pr-state">
               <span className="pr-stat">{t(status.label as MessageKey)}</span>
               <span className="pr-next">
-                {next ? `${next.stage} · ${next.status}` : timing}
+                {next
+                  ? `${lbl(next.stageKey, next.stage)} · ${lbl(next.statusKey, next.status)}`
+                  : timing}
               </span>
             </span>
 

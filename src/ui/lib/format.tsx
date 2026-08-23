@@ -6,6 +6,8 @@
  */
 
 import type { ReactNode } from 'react'
+import { useCallback } from 'react'
+import { useLocale } from './i18n'
 
 /* ------------------------------------------------------------------ text -- */
 
@@ -89,11 +91,36 @@ export function D(s: string | null | undefined): Date | null {
   return Number.isNaN(t) ? null : new Date(t)
 }
 
-/** "9 Apr 25" — short enough for a timeline tick, unambiguous about the year. */
-export function fd(s: string | null | undefined): string {
+/** Arabic month names, in the Gregorian order the export uses. */
+const MON_AR = [
+  'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+  'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+] as const
+
+/**
+ * "9 Apr 25" — short enough for a timeline tick, unambiguous about the year.
+ *
+ * The month is a word and follows the reader's language; the day and year are
+ * numerals and stay Latin in both, because every date on these screens sits beside
+ * a sales order number or a day count the customer may quote back.
+ */
+export function fd(s: string | null | undefined, locale: 'en' | 'ar' = 'en'): string {
   const d = D(s)
   if (!d) return '—'
-  return `${d.getUTCDate()} ${MON[d.getUTCMonth()]} ${String(d.getUTCFullYear()).slice(2)}`
+  const month = locale === 'ar' ? MON_AR[d.getUTCMonth()] : MON[d.getUTCMonth()]
+  return `${d.getUTCDate()} ${month} ${String(d.getUTCFullYear()).slice(2)}`
+}
+
+/**
+ * `fd` bound to the reader's language.
+ *
+ * A hook rather than a locale argument at each of the thirty-odd call sites: the
+ * date format is a property of who is reading, not of the individual date, and
+ * threading it by hand is how one tick ends up in the wrong language.
+ */
+export function useFd(): (s: string | null | undefined) => string {
+  const locale = useLocale()
+  return useCallback((x: string | null | undefined) => fd(x, locale), [locale])
 }
 
 export function days(a: string | null | undefined, b: string | null | undefined): number {

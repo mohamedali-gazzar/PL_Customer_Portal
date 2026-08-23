@@ -23,94 +23,21 @@
 
 import { useCallback, useLayoutEffect, useMemo, useRef, useState } from 'react'
 
-import type { PortalItem, PortalOrder } from '@/portal/types'
+import type { CustomerItem, CustomerOrder } from '@/portal/types'
 import { STATE } from '@/portal/types'
 import { PHASES, PHASE_HEX, STAGE_HEX, STAGE_NAMES, STAGE_SHORT } from '@/portal/constants'
-import { journeyOf, JOURNEY_HEX } from '@/portal/journey'
-import { D, days, fd, ICO, Pill } from '../lib/format'
+import { journeyOf, materialKeyOf, JOURNEY_HEX } from '@/portal/journey'
+import { STAGES } from '@/portal/milestones'
+import { buildBands, plannedForStage, type Band } from '@/portal/bands'
+import { stagePosition, stagesFor } from '@/portal/milestones'
+import { D, days, useFd, ICO, Pill } from '../lib/format'
 import { TipHead, TipNote, TipRow, useTip } from '../lib/tooltip'
+import { useLabel, useT, type Translate } from '../lib/i18n'
 
 const DAY = 86_400_000
 
-/* ------------------------------------------------------------------ bands -- */
-
-export interface Band {
-  kind: 'phase' | 'wait'
-  from: string
-  to: string
-  /** Phase indices this band covers. Equal unless timestamps are missing. */
-  p0: number | null
-  p1: number | null
-  /** The open-ended band running up to today. */
-  tail?: boolean
-  /** Started, but with no completion timestamp yet. */
-  open?: boolean
-  label?: string
-  why?: string
-}
-
-/**
- * Turn the nine-timestamp chain into contiguous bands.
- *
- * Two realities of production data are handled here rather than hidden:
- *
- *  - Timestamps can arrive out of order — a later phase stamped earlier than an
- *    earlier one. The chain is forced monotonic first, so a bar can never be drawn
- *    running backwards.
- *  - A timestamp in the middle can be missing. The phases either side are then
- *    merged into one span and labelled as such ("T3–T4"), rather than guessing a
- *    boundary that would put a number on something nobody recorded.
- */
-export function buildBands(item: PortalItem, today: string, currentStage: number): Band[] {
-  const ch = [...item.ch]
-  for (let i = 0, max: string | null = null; i < ch.length; i += 1) {
-    const v = ch[i]
-    if (!v) continue
-    if (max && v < max) ch[i] = max
-    max = ch[i] ?? null
-  }
-
-  const bands: Band[] = []
-  let start = 0
-  while (start < ch.length && !ch[start]) start += 1
-  let last = start
-
-  for (let i = start + 1; i < ch.length; i += 1) {
-    if (!ch[i]) continue
-    if (ch[i]! > ch[last]!) {
-      bands.push({ kind: 'phase', from: ch[last]!, to: ch[i]!, p0: last, p1: i - 1 })
-      last = i
-    } else if (i > last) {
-      last = i // a zero-length phase: move on, never step back
-    }
-  }
-
-  // The open end. We are inside the phase that began at the last known timestamp,
-  // so name that phase rather than calling the time since then a blank.
-  const tailFrom = ch[last] ?? item.soDate
-  if (tailFrom && tailFrom < today) {
-    const running = last < PHASES.length ? last : null
-    bands.push({
-      kind: running !== null ? 'phase' : 'wait',
-      from: tailFrom,
-      to: today,
-      tail: true,
-      open: true,
-      p0: running,
-      p1: running,
-      label: running !== null ? PHASES[running]!.n : `Waiting · ${STAGE_SHORT[currentStage]}`,
-      why:
-        running !== null
-          ? `${PHASES[running]!.w} This phase is still open — ERPNext has no completion date for it yet.`
-          : `Nothing further has been recorded on this panel since ${fd(tailFrom)}.`,
-    })
-  }
-
-  return bands
-}
-
 /** The stage a panel is sitting in — the first that is neither finished nor unavailable. */
-export function currentStageOf(item: PortalItem): number {
+export function currentStageOf(item: CustomerItem): number {
   const i = item.st.findIndex((x) => x[0] === STATE.none || x[0] === STATE.active)
   return i < 0 ? 6 : i
 }
@@ -122,8 +49,8 @@ export function Timeline({
   items,
   today,
 }: {
-  order: PortalOrder
-  items: readonly PortalItem[]
+  order: CustomerOrder
+  items: readonly CustomerItem[]
   today: string
 }) {
   const plotRef = useRef<HTMLDivElement | null>(null)
@@ -225,7 +152,7 @@ function ItemTrack({
   px,
   plotRef,
 }: {
-  item: PortalItem
+  item: CustomerItem
   row: number
   today: string
   todayX: number
@@ -233,9 +160,17 @@ function ItemTrack({
   px: (w: number) => number
   plotRef?: React.RefObject<HTMLDivElement | null>
 }) {
+  const fd = useFd()
   const bind = useTip()
+  const t = useT()
+  const lbl = useLabel()
+  /** The other card's name, for the overlap line. */
+  const stageName = (n: number) => {
+    const spec = STAGES.find((x) => x.no === n)
+    return spec ? lbl(spec.nameKey, spec.name) : ''
+  }
   const cur = currentStageOf(item)
-  const bands = useMemo(() => buildBands(item, today, cur), [item, today, cur])
+  const bands = useMemo(() => buildBands(item, today), [item, today])
 
   const materialPlan = item.st[1]![4]
   const mfgPlan = item.st[2]![4]
@@ -251,8 +186,17 @@ function ItemTrack({
         <div style={{ minWidth: 0 }}>
           <div className="id">{item.code}</div>
           <div className="mt">
-            {item.name ?? ''} · Qty {item.qty} · {item.grp ?? ''}
+            {item.name ?? ''} · {t('item.qty', { n: item.qty })} · {item.grp ?? ''}
             {item.wo ? ` · ${item.wo}` : ''}
+            {/* Where the item is, counted over the stages this item actually
+                shows — a clean panel has no modification card, so "of 10" and
+                "of 11" are both correct answers for different items. */}
+            {` · `}
+            {t('item.stageOf', {
+              n: stagePosition(item.stage, item.rework > 0),
+              total: stagesFor(item.rework > 0).length,
+            })}
+            {item.dis !== null ? ` · ${t('item.daysInStage', { n: item.dis })}` : ''}
           </div>
         </div>
         <div className="rt">
@@ -266,42 +210,107 @@ function ItemTrack({
         </div>
       </div>
 
-      {/* the journey, in the order a customer experiences it */}
-      <div className="journey">
-        {journeyOf(item, today).map((lvl) => (
+      {/* An item on hold has stopped moving, and its stage dates stopped meaning
+          anything the moment it did. Saying so is more use than a timeline the
+          reader would otherwise assume is still running. Spec, Delta 3. */}
+      {item.hold ? (
+        <div className="onhold" role="status">
+          {ICO.warn} <span>{t('table.onHoldBanner')}</span>
+        </div>
+      ) : null}
+
+      {/* One card per stage, its steps inside. A stage is owned by one team and
+          can take several steps to clear; a flat list of steps lost which team was
+          holding the work. The strip scrolls rather than wrapping, so the order
+          reads straight through. */}
+      <div className="journey" role="list">
+        {journeyOf(item, today).map((st) => (
           <div
-            key={lvl.n}
-            className={`jst ${lvl.state === 'done' ? 'done' : lvl.state === 'active' ? 'act' : 'pend'}`}
-            style={{ ['--jc' as string]: JOURNEY_HEX[lvl.n] }}
+            key={st.n}
+            role="listitem"
+            className={`jst ${st.state === 'done' ? 'done' : st.state === 'active' ? 'act' : 'pend'}`}
+            style={{ ['--jc' as string]: JOURNEY_HEX[st.n] }}
             {...bind(
               <>
-                <TipHead swatch={JOURNEY_HEX[lvl.n]}>{`${lvl.n + 1}. ${lvl.label}`}</TipHead>
-                <TipRow label="Status" value={lvl.status} />
-                {lvl.from ? <TipRow label="Started" value={fd(lvl.from)} /> : null}
-                {lvl.to ? <TipRow label="Finished" value={fd(lvl.to)} /> : null}
-                {lvl.days !== null ? (
-                  <TipRow label={lvl.state === 'active' ? 'Running' : 'Took'} value={`${lvl.days} days`} />
+                <TipHead swatch={JOURNEY_HEX[st.n]}>
+                  {`${st.pos}. ${lbl(st.labelKey, st.label)}`}
+                </TipHead>
+                <TipRow label="Team" value={lbl(st.teamKey, st.team)} />
+                <TipRow label="Status" value={lbl(st.statusKey, st.status)} />
+                {st.from ? <TipRow label="Started" value={fd(st.from)} /> : null}
+                {st.to ? <TipRow label="Finished" value={fd(st.to)} /> : null}
+                {st.days !== null ? (
+                  <TipRow label={st.state === 'active' ? 'Running' : 'Took'} value={`${st.days} days`} />
                 ) : null}
-                {lvl.planned ? <TipRow label="Planned by" value={fd(lvl.planned)} /> : null}
-                <TipNote>{lvl.what}</TipNote>
+                {st.planned ? <TipRow label="Planned by" value={fd(st.planned)} /> : null}
+                {st.what ? <TipNote>{st.what}</TipNote> : null}
               </>,
             )}
           >
             <div className="jh">
-              <span className="jnum">{lvl.n + 1}</span>
-              <span className="jname">{lvl.label}</span>
+              <span className="jnum">{st.pos}</span>
+              <span className="jname">{lbl(st.labelKey, st.label)}</span>
             </div>
-            <div className="jstat">{lvl.status}</div>
-            {lvl.from ? (
-              <div className="jdt">
-                <span>{lvl.state === 'done' && lvl.to ? 'Done' : 'From'}</span>
-                <b>{fd(lvl.state === 'done' && lvl.to ? lvl.to : lvl.from)}</b>
+            <div className="jteam">{lbl(st.teamKey, st.team)}</div>
+
+            <div className="jsteps">
+              {/* No work order: the steps below it have no documents to date them
+                  from, so the card says that rather than showing empty rows. */}
+              {st.unrecorded ? (
+                <div className="jstep jstep-none">
+                  <span className="jdot" aria-hidden />
+                  <span className="jstep-b">
+                    <span className="jstep-l idle">{t('now.noProduction')}</span>
+                  </span>
+                </div>
+              ) : null}
+              {st.unrecorded ? null : st.steps.map((sp) => (
+                <div
+                  key={`${sp.no}-${sp.label}`}
+                  /* v8 gives a step three states, not two: a step that has opened
+                     and not closed is running, and reads differently from one that
+                     has finished and one that has not begun. */
+                  className={`jstep${sp.done ? ' on' : ''}${sp.state === 'active' ? ' run' : ''}`}
+                >
+                  <span className="jdot" aria-hidden />
+                  <span className="jstep-b">
+                    <span className="jstep-n">{sp.no}</span>
+                    <span className="jstep-l">{lbl(sp.labelKey, sp.label)}</span>
+                  </span>
+                  {sp.note || sp.on ? (
+                    <span className="jstep-d">
+                      {[
+                        sp.note ? lbl(materialKeyOf(sp.note), sp.note) : null,
+                        sp.on ? fd(sp.on) : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </span>
+                  ) : null}
+                </div>
+              ))}
+            </div>
+
+            {st.state === 'active' && st.days !== null ? (
+              <div className="jrun">
+                {st.n === 2 ? t('bar.withYou') : lbl(st.statusKey, st.status)} ·{' '}
+                {t('unit.days', { n: st.days })}
               </div>
             ) : null}
-            {lvl.days !== null ? (
-              <div className="jdt">
-                <span>{lvl.state === 'active' ? 'Running' : 'Took'}</span>
-                <b>{lvl.days}d</b>
+
+            {/* v8's parallel pair. Two cards lit at once is correct, and says so:
+                without the line it reads as the portal contradicting itself. */}
+            {st.alongside !== undefined ? (
+              <div
+                className="jpar"
+                {...bind(
+                  <>
+                    <TipHead>{ICO.info} {t('stage.parallel')}</TipHead>
+                    <TipNote>{t('stage.parallelWhy')}</TipNote>
+                  </>,
+                )}
+              >
+                {t('stage.alongside', { stage: stageName(st.alongside) })}
               </div>
             ) : null}
           </div>
@@ -322,58 +331,42 @@ function ItemTrack({
                   const tiny = trueWidth < 0.35
                   const width = Math.max(0.35, trueWidth)
                   const duration = days(band.from, band.to)
-                  const merged = band.kind === 'phase' && band.p1! > band.p0!
-                  const target = band.kind === 'phase' ? (phaseTarget[band.p1!] ?? null) : null
+                  const target = plannedForStage(band.stage, item)
                   const over = Boolean(target && band.to > target && band.from < target)
-                  const name =
-                    band.kind === 'phase'
-                      ? merged
-                        ? `${PHASES[band.p0!]!.n} → ${PHASES[band.p1!]!.n}`
-                        : PHASES[band.p0!]!.n
-                      : band.label!
-                  const code =
-                    band.kind === 'phase'
-                      ? merged
-                        ? `${PHASES[band.p0!]!.t}–${PHASES[band.p1!]!.t}`
-                        : PHASES[band.p0!]!.t
-                      : ''
+                  const name = lbl(band.labelKey, band.label)
                   const solid = over && target ? Math.max(0.35, X(target) - x0) : width
                   const room = px(solid)
-                  const fullLabel = `${name} · ${duration}${band.open ? 'd so far' : 'd'}`
+                  // "Drawings Approval · with you · 6d" — the customer's own clock,
+                  // named. Everything else is "<Stage> · <n>d".
+                  const fullLabel = band.withYou
+                    ? `${name} · ${t('bar.withYou')} · ${t('bar.d', { n: duration })}`
+                    : `${name} · ${t(band.open ? 'bar.dSoFar' : 'bar.d', { n: duration })}`
                   // A clipped word is worse than no word.
-                  const label = room >= fullLabel.length * 6.4 + 14 ? fullLabel : room >= 46 ? `${duration}d` : ''
+                  const short = t('bar.d', { n: duration })
+                  const label = room >= fullLabel.length * 6.4 + 14 ? fullLabel : room >= 46 ? short : ''
                   const isLast = bi === bands.length - 1
 
                   marks.push({ x: x0, text: fd(band.from) })
-                  if (isLast) marks.push({ x: x1, text: band.tail ? 'today' : fd(band.to) })
+                  if (isLast) marks.push({ x: x1, text: band.open ? t('mark.today') : fd(band.to) })
 
                   const tip = (
                     <>
-                      {band.kind === 'phase' ? (
-                        <TipHead swatch={PHASE_HEX[band.p0!]}>{`${code} · ${name}`}</TipHead>
-                      ) : (
-                        <TipHead>
-                          {ICO.info} {band.label}
-                        </TipHead>
-                      )}
+                      <TipHead swatch={band.family.hex}>{name}</TipHead>
                       <TipRow label="From" value={fd(band.from)} />
-                      <TipRow label={band.tail ? 'Still going, now' : 'To'} value={band.tail ? 'today' : fd(band.to)} />
+                      <TipRow
+                        label={band.open ? 'Still going, now' : 'To'}
+                        value={band.open ? t('mark.today') : fd(band.to)}
+                      />
                       <TipRow label={band.open ? 'Open for' : 'Duration'} value={`${duration} days`} />
-                      {band.kind === 'phase' && band.p0! <= 1 && band.p1! >= 1 && item.nRev ? (
+                      {band.stage <= 1 && item.nRev ? (
                         <TipRow label="Revisions" value={`${item.nRev} round${item.nRev > 1 ? 's' : ''}`} />
                       ) : null}
-                      {band.open ? <TipRow label="Panel status" value={item.st[cur]![1]} /> : null}
+                      {band.open && item.step ? <TipRow label="Panel status" value={item.step} /> : null}
                       {target ? <TipRow label="Target was" value={fd(target)} /> : null}
                       {over && target ? (
                         <TipRow label="Over target by" value={`${days(target, band.to)} days`} emphasis />
                       ) : null}
-                      <TipNote>
-                        {band.kind === 'phase'
-                          ? merged
-                            ? `Covers ${code}. One of the timestamps between them is missing in ERPNext, so they are shown as one span rather than guessed.`
-                            : PHASES[band.p0!]!.w
-                          : band.why}
-                      </TipNote>
+                      {band.what ? <TipNote>{band.what}</TipNote> : null}
                     </>
                   )
 
@@ -382,9 +375,7 @@ function ItemTrack({
                       <div
                         className={[
                           'tband',
-                          band.kind === 'wait' ? 'wait' : '',
-                          band.open ? 'open' : '',
-                          band.tail ? 'live' : '',
+                          band.open ? 'open live' : '',
                           isLast ? (bands.length === 1 ? 'onlyband' : 'lastband') : '',
                         ]
                           .filter(Boolean)
@@ -394,13 +385,15 @@ function ItemTrack({
                           width: `${width}%`,
                           zIndex: tiny ? 120 + bi : 3 + bi,
                           animationDelay: `${row * 35 + bi * 38}ms`,
-                          ...(band.kind === 'phase' ? { backgroundColor: PHASE_HEX[band.p0!] } : {}),
+                          // The segment takes the colour of its own card, so the
+                          // bar and the strip above it read as one thing.
+                          backgroundColor: band.family.hex,
                         }}
                         {...bind(tip)}
                       />
                       {label ? (
                         <div
-                          className={`tblabel${band.kind === 'wait' ? ' wait' : ''}`}
+                          className="tblabel"
                           style={{ left: `${x0}%`, width: `${solid}%`, ...(tiny ? { zIndex: 130 } : {}) }}
                         >
                           {label}
@@ -427,7 +420,7 @@ function ItemTrack({
                           )}
                         />
                       ) : null}
-                      {band.tail ? (
+                      {band.open ? (
                         <div
                           className="tcap"
                           style={{ left: `${x1}%` }}
@@ -454,13 +447,13 @@ function ItemTrack({
                     }}
                     {...bind(
                       <>
-                        <TipHead>{ICO.gap} Nothing recorded yet</TipHead>
-                        <TipRow label="Ordered" value={fd(item.soDate)} />
-                        <TipNote>No stage on this panel has started in the ERP yet.</TipNote>
+                        <TipHead>{ICO.gap} {t('bar.nothingYet')}</TipHead>
+                        <TipRow label={t('bar.ordered')} value={fd(item.soDate)} />
+                        <TipNote>{t('bar.nothingYetWhy')}</TipNote>
                       </>,
                     )}
                   >
-                    {`Not started · ${days(item.soDate, today)}d`}
+                    {t('bar.notStartedFor', { n: days(item.soDate, today) })}
                   </div>
                 ) : null}
 
@@ -497,8 +490,39 @@ function ItemTrack({
           </div>
         </div>
       </div>
+
+      {/* The line under the bar answers the question the bar provokes: against
+          what? An order whose drawings are not approved has no contractual date
+          yet — the clock has not started — and saying "not set" invites the reader
+          to think somebody forgot. */}
+      <div className="tl-foot">{contractLine(item, today, t, fd)}</div>
     </div>
   )
+}
+
+/**
+ * What the bar is measured against, in the customer's terms.
+ *
+ * A plain function, not a component, so the translator and the date formatter are
+ * passed in rather than pulled from hooks — calling a hook here would work today
+ * only because the one caller happens to be mid-render.
+ */
+export function contractLine(
+  item: CustomerItem,
+  today: string,
+  t: Translate,
+  fd: (s: string | null | undefined) => string,
+): string {
+  if (item.cDate) {
+    const date = fd(item.cDate)
+    const left = days(today, item.cDate)
+    if (left === null) return t('foot.contractual', { date })
+    if (left > 0) return t('foot.contractualLeft', { date, n: left })
+    if (left === 0) return t('foot.contractualToday', { date })
+    return t('foot.contractualPast', { date, n: Math.abs(left) })
+  }
+  if (item.cPeriod) return t('foot.period', { n: item.cPeriod })
+  return t('foot.none')
 }
 
 /** Dates along the top, left to right, dropping any that would collide. */
@@ -538,7 +562,7 @@ function BelowMarkers({
   mfgPlan,
   deliveryPlan,
 }: {
-  item: PortalItem
+  item: CustomerItem
   X: (s: string | null | undefined) => number
   px: (w: number) => number
   today: string
@@ -546,15 +570,21 @@ function BelowMarkers({
   mfgPlan: string | null
   deliveryPlan: string | null
 }) {
+  const fd = useFd()
+  const t = useT()
   const bind = useTip()
   const below: { x: number; cls: string; text: string; tip: React.ReactNode }[] = []
 
-  const targets: [number, string | null, string][] = [
-    [1, materialPlan, 'material_delivery_date'],
-    [2, mfgPlan, 'planned_end_date'],
+  /* The ERPNext field each target comes from used to be shown in the tooltip. It
+     told a customer nothing they could act on and put internal schema names on a
+     screen, so the marker now says what the date means instead of where it is
+     stored. */
+  const targets: [number, string | null][] = [
+    [1, materialPlan],
+    [2, mfgPlan],
   ]
 
-  for (const [si, plan, field] of targets) {
+  for (const [si, plan] of targets) {
     if (!plan) continue
     const stage = item.st[si]!
     const end = stage[3] ?? (stage[0] === STATE.active && stage[2] ? today : null)
@@ -562,20 +592,25 @@ function BelowMarkers({
     below.push({
       x: X(plan),
       cls: `tplan${missed ? ' miss' : ''}`,
-      text: `${STAGE_SHORT[si]} target ${fd(plan)}`,
+      text: t(si === 1 ? 'mark.material' : 'mark.manufacturing', { date: fd(plan) }),
       tip: (
         <>
           <TipHead>
-            {missed ? ICO.warn : ICO.info} {STAGE_SHORT[si]} target
+            {missed ? ICO.warn : ICO.info} {t('mark.target', { stage: STAGE_SHORT[si] ?? '' })}
           </TipHead>
-          <TipRow label="Plan said" value={fd(plan)} />
+          <TipRow label={t('mark.planSaid')} value={fd(plan)} />
           {end ? (
-            <TipRow label={stage[3] ? 'Actually' : 'Still running, now'} value={fd(end)} emphasis={missed} />
+            <TipRow
+              label={t(stage[3] ? 'mark.actually' : 'mark.running')}
+              value={fd(end)}
+              emphasis={missed}
+            />
           ) : (
-            <TipRow label="Stage" value="not started" />
+            <TipRow label={t('mark.stage')} value={t('mark.notStarted')} />
           )}
-          {missed && end ? <TipRow label="Over by" value={`${days(plan, end)} days`} emphasis /> : null}
-          <TipRow label="ERP field" value={field} />
+          {missed && end ? (
+            <TipRow label={t('mark.overBy')} value={t('unit.days', { n: days(plan, end) })} emphasis />
+          ) : null}
         </>
       ),
     })
@@ -585,12 +620,14 @@ function BelowMarkers({
     below.push({
       x: X(deliveryPlan),
       cls: 'tcon',
-      text: `Contractual ${fd(deliveryPlan)}`,
+      text: t('mark.contractual', { date: fd(deliveryPlan) }),
       tip: (
         <>
-          <TipHead swatch={STAGE_HEX[5]}>Contractual delivery</TipHead>
-          <TipRow label="Agreed date" value={fd(deliveryPlan)} />
-          {item.cPeriod ? <TipRow label="Agreed period" value={`${item.cPeriod} days from order`} /> : null}
+          <TipHead swatch={STAGE_HEX[5]}>{t('mark.contractualDelivery')}</TipHead>
+          <TipRow label={t('mark.agreedDate')} value={fd(deliveryPlan)} />
+          {item.cPeriod ? (
+            <TipRow label={t('mark.agreedPeriod')} value={t('mark.periodFromOrder', { n: item.cPeriod })} />
+          ) : null}
           {item.dtc !== null ? (
             <TipRow
               label="Status"
@@ -617,6 +654,12 @@ function BelowMarkers({
     })
   }
 
+  below.sort((a, b) => a.x - b.x)
+  /* Left to right, so the collision pass below actually works. The markers are
+     pushed in the order they are computed — material, manufacturing, contractual —
+     which is not the order they sit in: a contractual date can fall before a
+     material target. Comparing against `lastLabel` down an unsorted list let two
+     captions print on top of each other. */
   below.sort((a, b) => a.x - b.x)
   let lastLabel = -999
 
