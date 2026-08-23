@@ -38,3 +38,6 @@ Thumbs.db
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Production build output, kept apart from the dev server (see next.config.ts)
+.next-build/

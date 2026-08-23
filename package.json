@@ -17,6 +17,7 @@
     ]
   },
   "scripts": {
+    "predev": "node scripts/clean-dev.mjs",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
