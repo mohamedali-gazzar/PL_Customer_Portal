@@ -417,6 +417,7 @@ h1,h2,h3,.gw-h1,.tile .val,.pcard .ttl,.gw-stat b{font-family:var(--font-head)}
 
 @keyframes riseIn{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
 @keyframes fadeUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes fadeOnly{from{opacity:0}to{opacity:1}}
 @keyframes growW{from{transform:scaleX(0)}to{transform:scaleX(1)}}
 
 /* ============================================================ APP SHELL = */
@@ -704,6 +705,7 @@ main{flex:1;width:100%;max-width:1440px;padding:28px 32px 80px}
   .ptop-upd{display:none}
   main{padding:20px 16px 64px}
 }
+
 .view{display:none}
 .view.on{display:block;animation:fadeUp .34s cubic-bezier(.2,.7,.3,1)}
 
@@ -2051,3 +2053,103 @@ table.t tbody tr.pickable.on td{color:var(--ink)}
 .iprog-pct b{font-family:var(--font-head);font-size:var(--fs-h3);font-weight:var(--fw-bold);
   color:var(--ink);font-variant-numeric:tabular-nums;min-width:42px;text-align:end}
 @media(max-width:620px){ .iprog-pct .prog{width:70px} }
+
+/* ══ phone shell ═════════════════════════════════════════════════════════════
+   Last in the file, and deliberately so. Two rules here were being overridden by
+   later blocks at wider breakpoints — `main`'s bottom padding by a max-width:860
+   rule, and the account name's line clamp by the max-width:620 block further
+   down — and both failures were invisible: the page simply ended 24px underneath
+   the bottom bar, and the longest name stayed clipped. Equal specificity means
+   source order decides, so this block sits after everything it has to beat. */
+/* ── phone: the shell becomes a phone app ─────────────────────────────────────
+   Below 620px only, and only the shell. The tablet strip above this and the
+   desktop column are both left exactly as they were.
+
+   What this replaces spent about 400px before a single figure appeared: a brand
+   row, the four destinations wrapped onto two rows, and an account block
+   repeating the customer name that the Welcome line directly beneath it was
+   already showing. A phone has one screenful to spend and that was most of it.
+
+   So the parts go where a phone expects them. Identity and the preferences stay
+   at the top in one bar. The destinations move to a bar along the bottom — four
+   equal columns, icon over label, always on screen and inside the thumb's reach.
+   That last part is the real gain: on an account with twenty-one projects the
+   navigation used to be a scroll back to the top of the page.
+
+   Several rules below restate the sidebar's own collapsed selectors verbatim.
+   That is deliberate. They carry `:not()` specificity a plain class cannot
+   outrank, and the sidebar mode means nothing here — there is no column to
+   widen — so each one has to be undone by name rather than by hope. */
+@media(max-width:620px){
+  /* Opacity only. `fadeUp` ends at `transform:none`, but for the half second it
+     runs it *is* a transform, and a transformed ancestor becomes the containing
+     block for `position:fixed` — which would plant the bottom bar at the end of
+     the document and snap it to the viewport once the animation finished. */
+  #app.in{animation:fadeOnly .38s var(--ease) forwards}
+
+  /* ── the top bar: the brand, and the way out ── */
+  .side{padding:8px 16px;gap:12px;justify-content:space-between;flex-wrap:nowrap;
+    overflow:visible}
+  .side-rail .brand-win,
+  .side-hover:not(:hover):not(:has(:focus-visible)) .brand-win,
+  .brand-win{width:112px}
+  .side .side-brand img{height:26px}
+  .side-foot{margin-inline-start:auto;gap:0}
+  /* The monogram and the name come off this bar. Both sit in the Welcome line
+     56px below it, and a customer's own name printed twice inside 100px of
+     chrome is not identity, it is noise. */
+  .acct{gap:0;align-items:center}
+  .acct-av,
+  .acct-nm{display:none}
+  .side-rail .acct-t,
+  .side-hover:not(:hover):not(:has(:focus-visible)) .acct-t,
+  .acct-t{visibility:visible;display:block;width:auto;flex:none}
+  .acct-out{align-self:center;display:flex;align-items:center;min-height:32px;
+    font-size:var(--fs-note)}
+
+  /* ── the bottom bar: the destinations ── */
+  /* `grid-auto-flow:column` rather than four named tracks: the staff console has
+     one destination, not four, and a fixed count would leave it sitting in a
+     quarter of the bar. */
+  .side-nav{position:fixed;inset-inline:0;bottom:0;z-index:100;
+    display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:0;
+    flex:none;min-height:0;overflow:visible;
+    padding:0 0 env(safe-area-inset-bottom,0px);
+    background:var(--sunken);border-top:1px solid var(--line)}
+  .side-rail .nv-l,
+  .side-hover:not(:hover):not(:has(:focus-visible)) .nv-l,
+  .side .nv-l{opacity:1;pointer-events:auto;flex:none;overflow:visible;
+    text-align:center;white-space:normal;font-size:var(--fs-micro);line-height:1.2}
+  .side .nv-i{display:grid}
+  .side-nav button{flex-direction:column;align-items:center;justify-content:center;
+    width:auto;gap:5px;padding:9px 3px;border-radius:0;min-height:58px;
+    text-align:center;white-space:normal}
+  /* A filled block is a column device; across a bar it reads as one tab shaded
+     differently. The brand rule on the top edge is what a tab bar uses. */
+  .side-nav button.on{background:none;color:var(--brand-text);
+    box-shadow:inset 0 2px 0 var(--brand)}
+  .side-nav button:hover:not(:disabled){background:none}
+  /* The count rides the icon rather than trailing the label: there is no room
+     beside the words in a quarter-width column, and the number is the entire
+     reason to look at this tab. */
+  .side-rail .side-badge,
+  .side-hover:not(:hover):not(:has(:focus-visible)) .side-badge,
+  .side .side-badge{position:absolute;top:4px;inset-inline-start:calc(50% + 4px);
+    inset-inline-end:auto;padding:1px 5px;min-width:0;height:auto;
+    font-size:var(--fs-micro);line-height:1.45;border-radius:100px;
+    box-shadow:0 0 0 2px var(--sunken)}
+
+  /* The page ends above the bar rather than underneath it. */
+  main{padding:18px 16px calc(78px + env(safe-area-inset-bottom,0px))}
+
+  /* One line, not two. The name takes the width the wrap was costing it. */
+  .ptop{flex-wrap:nowrap;gap:10px;padding:0 14px}
+  .ptop-r{gap:10px}
+  /* Three lines here, not two. The preference controls are at their documented
+     floor and cannot give the name any more width, so the only room left to give
+     it is downwards — and this is the one place a customer's own name is printed
+     now that it has come off the bar above. The longest name on the book needs a
+     third line and gets it; the header grows to 66px for that account and stays
+     at 57px for every other. */
+  .hello-nm{-webkit-line-clamp:3;line-clamp:3}
+}
