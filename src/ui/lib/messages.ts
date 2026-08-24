@@ -117,20 +117,14 @@ export const MESSAGES = {
 
 
     'status.hold': 'On hold',
-    'status.late': 'Past contractual date',
-    'status.action': 'Pending approval',
-    'status.ontrack': 'On track',
 
     'list.project': 'Project',
-    'list.status': 'Status',
+    'list.stage': 'Stage',
     'list.progress': 'Progress',
     'list.contract': 'Contract',
     'list.openBacklog': 'Open backlog',
     'list.items': '{n} items',
     'list.panels': '{delivered} / {total} panels',
-    'list.overdue': '{n} days overdue',
-    'list.due': 'due {date}',
-    'list.noDate': 'no contractual date',
 
     'proj.title': 'Projects',
     'proj.salesOrders': '{n} sales orders',
@@ -188,7 +182,6 @@ export const MESSAGES = {
     'proj.pmLabel': 'Your project manager',
     'proj.pmManager': 'Reports to',
     'proj.complete': '{n}% complete',
-    'proj.within': 'Within contractual date',
     'proj.itemDetail': 'Item detail',
     'proj.timeline': 'Item milestone timeline',
 
@@ -198,7 +191,6 @@ export const MESSAGES = {
     'table.delivered': 'Delivered',
     'table.workOrder': 'Work order',
     'table.currentStage': 'Current stage',
-    'table.material': 'Material',
     'table.progress': 'Progress',
     'table.contractValue': 'Contract value',
     'table.noWorkOrder': 'No work order',
@@ -391,20 +383,14 @@ export const MESSAGES = {
 
 
     'status.hold': 'موقوف',
-    'status.late': 'تجاوز التاريخ التعاقدي',
-    'status.action': 'في انتظار موافقتك',
-    'status.ontrack': 'يسير كما هو مخطط',
 
     'list.project': 'المشروع',
-    'list.status': 'الحالة',
+    'list.stage': 'المرحلة',
     'list.progress': 'التقدم',
     'list.contract': 'التعاقد',
     'list.openBacklog': 'الرصيد المفتوح',
     'list.items': '{n} بند',
     'list.panels': '{delivered} / {total} لوحة',
-    'list.overdue': 'متأخر {n} يوم',
-    'list.due': 'الاستحقاق {date}',
-    'list.noDate': 'لا يوجد تاريخ تعاقدي',
 
     'proj.title': 'المشروعات',
     'proj.salesOrders': '{n} أمر بيع',
@@ -450,7 +436,6 @@ export const MESSAGES = {
     'proj.pmLabel': 'مدير مشروعك',
     'proj.pmManager': 'يتبع',
     'proj.complete': 'مكتمل {n}%',
-    'proj.within': 'داخل التاريخ التعاقدي',
     'proj.itemDetail': 'تفاصيل البنود',
     'proj.timeline': 'الجدول الزمني لمراحل البنود',
 
@@ -460,7 +445,6 @@ export const MESSAGES = {
     'table.delivered': 'المسلَّم',
     'table.workOrder': 'أمر التشغيل',
     'table.currentStage': 'المرحلة الحالية',
-    'table.material': 'المواد',
     'table.progress': 'التقدم',
     'table.contractValue': 'قيمة التعاقد',
     'table.noWorkOrder': 'لا يوجد أمر تشغيل',

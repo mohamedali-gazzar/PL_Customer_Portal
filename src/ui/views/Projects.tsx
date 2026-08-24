@@ -13,7 +13,7 @@ import { STATE } from '@/portal/types'
 import { STAGE_NAMES } from '@/portal/constants'
 import { deliveryState } from '@/portal/derive'
 import { STAGES, stagePosition, visibleStageOf } from '@/portal/milestones'
-import { journeyOf, materialKeyOf, statusKeyOf } from '@/portal/journey'
+import { journeyOf, statusKeyOf } from '@/portal/journey'
 import { arw, egp, useFd, full, int, Pill } from '../lib/format'
 import { useLabel, useT, type MessageKey, type Translate } from '../lib/i18n'
 import { byYear, indexItems, itemsOf, orderYears } from '../lib/select'
@@ -29,7 +29,6 @@ import { ProjectList } from '../components/ProjectList'
  * through the model's keys rather than either one holding its own copy.
  */
 function useStageWords() {
-  const t = useT()
   const say = useLabel()
   return {
     stageName: (stage: number) => {
@@ -39,11 +38,6 @@ function useStageWords() {
     //  arrives already mapped to the portal's English wording; the key comes
     // from the same lookup the cards use, so the two cannot drift.
     stepText: (step: string | null) => (step ? say(statusKeyOf(step), step) : null),
-    /* The material badge. The ERP's own three values are translated; anything
-       outside that set keeps the export's text so a new status is visible rather
-       than silently blank. */
-    matWord: (status: string | null | undefined) =>
-      status ? say(materialKeyOf(status), status) : t('table.noWorkOrder'),
   }
 }
 
@@ -101,11 +95,6 @@ export function Projects({
           </div>
           <div style={{ display: 'flex', gap: '7px' }}>
             {order.hold ? <Pill kind="warn">{t('status.hold')}</Pill> : null}
-            {order.late ? (
-              <Pill kind="bad">{t('status.late')}</Pill>
-            ) : (
-              <Pill kind="ok">{t('proj.within')}</Pill>
-            )}
             <Pill kind="info">{t('proj.complete', { n: order.pct })}</Pill>
           </div>
         </div>
@@ -214,7 +203,7 @@ function ItemTable({
   selected: number | null
   onOpen?: (id: number) => void
 }) {
-  const { stageName, stepText, matWord } = useStageWords()
+  const { stageName, stepText } = useStageWords()
   return (
     <div className="card scrollx">
       <table className="t">
@@ -224,12 +213,15 @@ function ItemTable({
                 more. Description repeated the item code in longer words and was the
                 column that truncated; work order is factory paperwork and an open
                 question for Powerline besides; delivered and contract value are
-                per-line detail the item's own page has room to show properly. */}
+                per-line detail the item's own page has room to show properly.
+                Material went the same way: it read "Not yet available" on most
+                rows without saying what was missing or when it lands, and the
+                item's own timeline gives the same fact its proper place, against
+                the Material Planning stage that owns it. */}
             <th className="lineno">#</th>
             <th>{t('table.item')}</th>
             <th className="r">{t('table.qty')}</th>
             <th>{t('table.currentStage')}</th>
-            <th>{t('table.material')}</th>
             <th>{t('table.stageTrack')}</th>
             <th className="r">{t('table.progress')}</th>
           </tr>
@@ -238,14 +230,6 @@ function ItemTable({
           {items.map((it, line) => {
             const found = it.st.findIndex((x) => x[0] === STATE.none || x[0] === STATE.active)
             const cur = found < 0 ? 6 : found
-            const materialKind =
-              it.matStatus === 'Available'
-                ? 'ok'
-                : it.matStatus === 'Partially Available'
-                  ? 'warn'
-                  : it.matStatus
-                    ? 'bad'
-                    : 'gap'
             return (
               /* The row is the control. A separate "view" button in a tenth
                  column would be a second thing to aim at for the only action the
@@ -289,9 +273,6 @@ function ItemTable({
                   <span style={{ color: 'var(--muted)', fontSize: '11.5px' }}>
                     {stepText(it.step) ?? t('table.notStarted')}
                   </span>
-                </td>
-                <td>
-                  <Pill kind={materialKind}>{matWord(it.matStatus)}</Pill>
                 </td>
                 {/* Eleven stages as eleven marks. The stage name says where the
                     item is; this says how much of the road is behind it, which is

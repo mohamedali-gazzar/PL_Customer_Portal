@@ -1,10 +1,13 @@
 /**
- * The project filter, and the status badge it has to agree with.
+ * The project filter, and the state the row's node is coloured from.
  *
  * A filter that quietly drops or double-counts a record is worse than no filter,
- * because the total on screen still looks authoritative. And a status that
- * disagrees with the badge on the card is worse still: you read "Past contractual
- * date" on one and something else on the other.
+ * because the total on screen still looks authoritative.
+ *
+ * The state no longer resolves to any customer-facing words — those came off the
+ * projects list — but it still has to resolve to exactly one value, because two
+ * overlapping conditions colouring the same node is how a row ends up claiming
+ * two things at once.
  */
 
 import { test } from 'node:test'
@@ -72,7 +75,7 @@ test('a year selects only that year, and excludes undated orders', () => {
 
 /* ------------------------------------------------------- the badge on a card -- */
 
-test('a project badge shows exactly one status, resolved by priority', () => {
+test('a project resolves to exactly one state, by priority', () => {
   // The conditions overlap: an order can be late and awaiting approval at once.
   assert.equal(projectStatus(orders[0]!).key, 'ontrack')
   assert.equal(projectStatus(orders[1]!).key, 'late')

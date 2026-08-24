@@ -2,29 +2,32 @@ import type { CustomerOrder } from '@/portal/types'
 import type { PillKind } from './format'
 
 /**
- * A project's status — one value, in priority order.
+ * A project's state — one value, in priority order.
  *
  * These conditions overlap in the real portfolio: 7 orders are both past their
  * contractual date and waiting on the customer, and 7 more are both on hold and
- * late. So a status has to be a single answer arrived at by priority, not a set of
- * flags, or the filter and the badge on the card would disagree — you would select
- * "Past contractual date" and get cards labelled "On hold".
+ * late. So a state has to be a single answer arrived at by priority, not a set of
+ * flags, or two places on the same card would say different things.
  *
- * This function is the only place that decision is made, and both the card and the
- * filter read it. That is what makes them consistent by construction.
+ * It carries no label any more. The customer-facing wording it used to resolve to
+ * — "Past contractual date", "On track" — has been taken off the projects list:
+ * it appeared on every row, so it distinguished nothing, and telling a customer
+ * their own order is late is a judgement the portal should not be making on
+ * Powerline's behalf. What remains is a key, which colours the node on the row and
+ * nothing else.
  *
- * The order of precedence answers "what should this customer do about it?":
+ * The order of precedence answers "what is holding this up?":
  *
  *   on hold        nothing is moving, and that outranks how late it is
- *   past date      the schedule has slipped and they need to know
- *   pending appr.  a drawing is sitting with them, and only they can clear it
+ *   past date      the schedule has slipped
+ *   pending appr.  a drawing is sitting with the customer
  *   on track       nothing to report
  */
 export const PROJECT_STATUSES = [
-  { key: 'hold', label: 'status.hold', kind: 'warn' },
-  { key: 'late', label: 'status.late', kind: 'bad' },
-  { key: 'action', label: 'status.action', kind: 'warn' },
-  { key: 'ontrack', label: 'status.ontrack', kind: 'ok' },
+  { key: 'hold', kind: 'warn' },
+  { key: 'late', kind: 'bad' },
+  { key: 'action', kind: 'warn' },
+  { key: 'ontrack', kind: 'ok' },
 ] as const
 
 export type ProjectStatusKey = (typeof PROJECT_STATUSES)[number]['key']
@@ -32,8 +35,6 @@ export type StatusFilter = ProjectStatusKey | 'all'
 
 export interface ProjectStatus {
   readonly key: ProjectStatusKey
-  /** A message key — the label is resolved by the caller, in the reader's language. */
-  readonly label: string
   readonly kind: PillKind
 }
 

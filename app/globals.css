@@ -910,19 +910,17 @@ p.psub{color:var(--muted);font-size:var(--fs-meta);margin-top:6px;line-height:va
 .pr-meta .so{color:var(--ink3);font-weight:var(--fw-semi)}
 .pr-meta .sep{width:2px;height:2px;border-radius:50%;background:var(--faint);flex:none}
 
-/* ── state: what it is, and what happens next ── */
+/* ── state: where the order is ── */
+/* The verdict line that used to sit above this one is gone, so what was the
+   second line is now the only one — and its 4px top offset, which existed to
+   separate it from that line, would now just drop it out of step with the
+   figures in the columns beside it. */
 .pr-state{display:flex;flex-direction:column;min-width:0}
-.pr-stat{font-size:var(--fs-meta);font-weight:var(--fw-semi);letter-spacing:-.004em;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.st-late .pr-stat{color:var(--critical-ink)}
-.st-action .pr-stat{color:var(--brand-text)}
-.st-hold .pr-stat{color:var(--ink3)}
-.st-ontrack .pr-stat{color:var(--good-ink)}
 /* Two lines rather than one clipped one. "Final quality adjustments in progress"
    is the whole point of the line, and at the narrow end of this column a single
    nowrap line loses all of it after the third word. Clamped at two so a long
    stage name cannot push the row out of step with its neighbours. */
-.pr-next{font-size:var(--fs-note);color:var(--muted);margin-top:4px;line-height:1.5;
+.pr-next{font-size:var(--fs-note);color:var(--muted);line-height:1.5;
   display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 
 /* ── progress ── */

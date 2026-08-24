@@ -16,12 +16,11 @@
  */
 
 import type { CustomerItem, CustomerOrder } from '@/portal/types'
-import { STAGES, visibleStageOf } from '@/portal/milestones'
-import { statusKeyOf } from '@/portal/journey'
-import { arw, egp, useFd } from '../lib/format'
-import { useLabel, useT, type MessageKey } from '../lib/i18n'
+import { arw, egp } from '../lib/format'
+import { useLabel, useT } from '../lib/i18n'
 import { projectStatus } from '../lib/status'
 import { indexItems, itemsOf } from '../lib/select'
+import { stageOf } from '../lib/order-stage'
 
 const Chevron = () => (
   <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -29,34 +28,6 @@ const Chevron = () => (
   </svg>
 )
 
-/**
- * The next thing to happen on this order.
- *
- * Taken from the least-advanced line, because an order is only as ready as its
- * slowest panel — reporting the furthest-along line would flatter the schedule.
- *
- * Both halves now come from the report: the milestone from `Current Stage #` and
- * the wording from `Current Step`. The portal used to work this out from its own
- * chain of timestamps, which meant two rules for one question. Spec, Delta 3.
- */
-export function nextOf(
-  items: readonly CustomerItem[],
-): { stage: string; stageKey: string; status: string; statusKey: string } | null {
-  const pending = items.filter((i) => i.pct < 100)
-  if (pending.length === 0) return null
-  const slowest = pending.reduce((a, b) => (b.stage < a.stage ? b : a))
-  const spec = STAGES[visibleStageOf(slowest.stage)]
-  if (!spec) return null
-  const status = slowest.step ?? 'Not started'
-  // Keys as well as words: this line is the only place on the dashboard that names
-  // a stage, and it was reaching the Arabic screen in English.
-  return {
-    stage: spec.name,
-    stageKey: spec.nameKey,
-    status,
-    statusKey: slowest.step ? statusKeyOf(slowest.step) : 'table.notStarted',
-  }
-}
 
 export function ProjectList({
   orders,
@@ -67,7 +38,6 @@ export function ProjectList({
   items: readonly CustomerItem[]
   onOpen: (so: string) => void
 }) {
-  const fd = useFd()
   const t = useT()
   const lbl = useLabel()
   const byId = indexItems(items)
@@ -76,7 +46,7 @@ export function ProjectList({
     <div className="plist">
       <div className="plist-cols" aria-hidden>
         <span>{t('list.project')}</span>
-        <span>{t('list.status')}</span>
+        <span>{t('list.stage')}</span>
         <span>{t('list.progress')}</span>
         <span className="r">{t('list.contract')}</span>
         <span className="r">{t('list.openBacklog')}</span>
@@ -85,20 +55,14 @@ export function ProjectList({
 
       {orders.map((order) => {
         const status = projectStatus(order)
-        const next = nextOf(itemsOf(order, byId))
-        const timing =
-          order.dtc !== null && order.dtc < 0
-            ? t('list.overdue', { n: Math.abs(order.dtc) })
-            : order.cDate
-              ? t('list.due', { date: fd(order.cDate) })
-              : t('list.noDate')
+        const at = stageOf(itemsOf(order, byId))
 
         return (
           <button
             key={order.so}
             className={`plist-row st-${status.key}`}
             onClick={() => onOpen(order.so)}
-            aria-label={`${order.proj} — ${t(status.label as MessageKey)}`}
+            aria-label={order.proj}
           >
             <span className="pr-id">
               <span className="pr-name">
@@ -120,12 +84,18 @@ export function ProjectList({
               </span>
             </span>
 
+            {/* Where the order is, and nothing about whether that is good news.
+                The verdict line above this one read "Past contractual date" on
+                every order in the list, so it separated nothing, and a schedule
+                judgement is not the portal's to hand the customer. The stage and
+                step the report names is the half that was doing work. */}
             <span className="pr-state">
-              <span className="pr-stat">{t(status.label as MessageKey)}</span>
               <span className="pr-next">
-                {next
-                  ? `${lbl(next.stageKey, next.stage)} · ${lbl(next.statusKey, next.status)}`
-                  : timing}
+                {at === null
+                  ? null
+                  : at.status !== null && at.statusKey !== null
+                    ? `${lbl(at.stageKey, at.stage)} · ${lbl(at.statusKey, at.status)}`
+                    : lbl(at.stageKey, at.stage)}
               </span>
             </span>
 
