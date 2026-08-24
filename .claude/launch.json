@@ -3,6 +3,12 @@
   "configurations": [
     {
       "name": "portal",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["run", "dev"],
+      "port": 3000
+    },
+    {
+      "name": "portal-attach",
       "port": 3000,
       "url": "http://localhost:3000"
     }
