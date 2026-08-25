@@ -2096,7 +2096,12 @@ table.t tbody tr.pickable.on td{color:var(--ink)}
   #app.in{animation:fadeOnly .38s var(--ease) forwards}
 
   /* ── the top bar: the brand, and the way out ── */
-  .side{padding:8px 16px;gap:12px;justify-content:space-between;flex-wrap:nowrap;
+  /* 13px above and below rather than 8. Both bars were sized to the smallest
+     thing that would hold their contents, which is how a bar ends up reading as
+     a seam between two blocks instead of a band with something in it. The
+     wordmark and the account line each need air on both sides to sit in a bar
+     rather than against its edges. */
+  .side{padding:13px 16px;gap:12px;justify-content:space-between;flex-wrap:nowrap;
     overflow:visible}
   .side-rail .brand-win,
   .side-hover:not(:hover):not(:has(:focus-visible)) .brand-win,
@@ -2150,8 +2155,12 @@ table.t tbody tr.pickable.on td{color:var(--ink)}
   /* The page ends above the bar rather than underneath it. */
   main{padding:18px 16px calc(78px + env(safe-area-inset-bottom,0px))}
 
-  /* One line, not two. The name takes the width the wrap was costing it. */
-  .ptop{flex-wrap:nowrap;gap:10px;padding:0 14px}
+  /* One line, not two. The name takes the width the wrap was costing it.
+     The vertical padding is real padding rather than a min-height: the account
+     name runs to two lines on the longer names and one on the shorter, so the
+     bar has to breathe around whatever it is given instead of being pinned to a
+     single figure that only suits one of the two. */
+  .ptop{flex-wrap:nowrap;gap:10px;padding:12px 14px}
   .ptop-r{gap:10px}
   /* Three lines here, not two. The preference controls are at their documented
      floor and cannot give the name any more width, so the only room left to give
