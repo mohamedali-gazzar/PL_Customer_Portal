@@ -54,8 +54,16 @@ export interface StoredPrefs {
 /**
  * "System" is the default and a real choice: someone who set their laptop to dark
  * at 9pm should not have to tell this portal about it as well.
+ *
+ * The sidebar starts on `hover` for the same reason it exists: it gives the page
+ * its full width and still lets a reader see the labels without spending a click.
+ * `open` held 246px of every screen from the first visit, and a first visit is
+ * exactly when nobody has been told there is a control that would give it back.
+ *
+ * This is the starting point, not an override. Anyone who has already chosen a
+ * mode keeps it — the cookie is read first and only falls back to here.
  */
-export const DEFAULT_PREFS: StoredPrefs = { theme: 'system', locale: 'en', sidebar: 'open' }
+export const DEFAULT_PREFS: StoredPrefs = { theme: 'system', locale: 'en', sidebar: 'hover' }
 
 /**
  * The cookie is `<theme>.<locale>.<sidebar>` — three known tokens.
