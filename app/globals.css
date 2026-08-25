@@ -670,9 +670,17 @@ main{flex:1;width:100%;max-width:1440px;padding:28px 32px 80px}
 @media(max-width:900px){
   /* Below this the sidebar is a strip and the mode is meaningless — there is no
      column to widen. Every collapsed rule is undone rather than fought with. */
+  /* Two rows, and the second one takes the slack.
+     `#app` is a grid with `min-height:100%`, and a grid's default `align-content`
+     behaves as `stretch` — so where the page is shorter than the viewport the
+     leftover height was divided between the two auto rows, and the top bar grew
+     by 254px on Pending With You when nothing was waiting. The bar is content-
+     sized; the column beneath it absorbs the rest, which also keeps the page
+     ground reaching the bottom bar on a short view instead of stopping short. */
   #app.on,
   #app.on:has(.side-rail),
-  #app.on:has(.side-hover){grid-template-columns:minmax(0,1fr)}
+  #app.on:has(.side-hover){grid-template-columns:minmax(0,1fr);
+    grid-template-rows:auto minmax(0,1fr)}
   .side,.side-rail,.side-hover,.side-hover:hover{width:auto;box-shadow:none}
   .side-mode{display:none}
   .side .nv-l{opacity:1;pointer-events:auto}
